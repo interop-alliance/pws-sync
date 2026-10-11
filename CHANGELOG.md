@@ -1,5 +1,11 @@
 # @interop/was-sync Changelog
 
+## 0.9.1 - TBD
+
+### Changed
+
+- Update to latest was-client and vh log.
+
 ## 0.9.0 - 2026-10-10
 
 ### Changed
