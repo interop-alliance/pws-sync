@@ -9,7 +9,9 @@
  * answering with a body) it adopts the stamp beside the validator, as a unit:
  * the content ack's triple and `createdBy` onto the row, the `/meta` ack's
  * `meta` onto `meta`, nothing from an ack with no validator, and nothing onto a
- * row that was edited again during the push.
+ * row that was edited again during the push. Beside the content validator it
+ * also sets the `writerId` label the write declared, or removes the member
+ * when the push declared none.
  */
 import { randomUUID } from 'node:crypto'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -210,19 +212,22 @@ async function pushEdit({
   port,
   replicationIdentifier,
   edit,
-  beforeStart = () => {}
+  beforeStart = () => {},
+  writerId
 }: {
   port: WasSyncPort
   replicationIdentifier: string
   edit: Partial<SyncedDoc>
   beforeStart?: (collection: RxCollection<SyncedDoc>) => void
+  writerId?: string
 }) {
   const collection = await openCollection()
   beforeStart(collection)
   const replication = createWasReplication({
     rxCollection: collection,
     wasPort: port,
-    replicationIdentifier
+    replicationIdentifier,
+    ...(writerId !== undefined && { writerId })
   })
   await replication.awaitInitialReplication()
 
@@ -235,6 +240,30 @@ async function pushEdit({
   await replication.cancel()
   const acked = (await collection.findOne('doc-0').exec())!.toJSON()
   return { collection, edited, acked }
+}
+
+/**
+ * A port whose first content write lands `concurrentEdit` on the row while
+ * the push is in flight, then acks a stamp for the superseded state; the
+ * second push (of that edit) is acked on the validator alone.
+ */
+function editDuringPushPort(concurrentEdit: Partial<SyncedDoc>) {
+  const port = ackPort({ contentAck: { etag: '"g.4"' }, metaAck: {} })
+  return {
+    port,
+    beforeStart(collection: RxCollection<SyncedDoc>) {
+      port.putContent.mockImplementationOnce(async () => {
+        const row = await collection.findOne('doc-0').exec()
+        await row!.incrementalPatch(concurrentEdit)
+        return {
+          etag: '"g.4"',
+          updatedAt: '2026-01-02T00:00:00.500Z',
+          updatedAtCounter: 4,
+          originId: 'origin-a'
+        }
+      })
+    }
+  }
 }
 
 describe('ack write-back: the acked state beside the validator', () => {
@@ -321,30 +350,6 @@ describe('ack write-back: the acked state beside the validator', () => {
     expect(acked).toEqual(edited)
   })
 
-  /**
-   * A port whose first content write lands `concurrentEdit` on the row while
-   * the push is in flight, then acks a stamp for the superseded state; the
-   * second push (of that edit) is acked on the validator alone.
-   */
-  function editDuringPushPort(concurrentEdit: Partial<SyncedDoc>) {
-    const port = ackPort({ contentAck: { etag: '"g.4"' }, metaAck: {} })
-    return {
-      port,
-      beforeStart(collection: RxCollection<SyncedDoc>) {
-        port.putContent.mockImplementationOnce(async () => {
-          const row = await collection.findOne('doc-0').exec()
-          await row!.incrementalPatch(concurrentEdit)
-          return {
-            etag: '"g.4"',
-            updatedAt: '2026-01-02T00:00:00.500Z',
-            updatedAtCounter: 4,
-            originId: 'origin-a'
-          }
-        })
-      }
-    }
-  }
-
   it('leaves the stamp of a row edited again during the push, and still patches the etag', async () => {
     const { port, beforeStart } = editDuringPushPort({
       data: { n: 2 },
@@ -428,5 +433,77 @@ describe('ack write-back: the acked state beside the validator', () => {
     expect(acked.etag).toBe('"g.4"')
     expect(acked.updatedAtCounter).toBe(4)
     expect(acked.createdBy).toBeUndefined()
+  })
+})
+
+describe('ack write-back: the writerId label', () => {
+  it('sets the injected label beside the content etag', async () => {
+    const port = ackPort({ contentAck: { etag: '"g.4"' }, metaAck: {} })
+    const { edited, acked } = await pushEdit({
+      port,
+      replicationIdentifier: 'ack-label-set',
+      edit: { data: { n: 1 }, updatedAt: '2026-01-02T00:00:00Z' },
+      writerId: 'writer-a'
+    })
+
+    expect('writerId' in edited).toBe(false)
+    expect(acked).toEqual({ ...edited, etag: '"g.4"', writerId: 'writer-a' })
+    // The write-back's patch triggers one more push cycle that finds nothing
+    // to write: the label is acked state, not a local edit.
+    expect(port.putContent).toHaveBeenCalledTimes(1)
+  })
+
+  it('removes a stored label when the push declared none', async () => {
+    const port = ackPort({ contentAck: { etag: '"g.4"' }, metaAck: {} })
+    // The row holds another writer's label from the previous revision.
+    const { acked } = await pushEdit({
+      port,
+      replicationIdentifier: 'ack-label-clear',
+      edit: {
+        data: { n: 1 },
+        updatedAt: '2026-01-02T00:00:00Z',
+        writerId: 'writer-b'
+      }
+    })
+
+    expect(acked.etag).toBe('"g.4"')
+    expect('writerId' in acked).toBe(false)
+    expect(port.putContent).toHaveBeenCalledTimes(1)
+  })
+
+  it('touches no label from an ack with no validator', async () => {
+    const port = ackPort({ contentAck: {}, metaAck: {} })
+    const { edited, acked } = await pushEdit({
+      port,
+      replicationIdentifier: 'ack-label-no-validator',
+      edit: {
+        data: { n: 1 },
+        updatedAt: '2026-01-02T00:00:00Z',
+        writerId: 'writer-b'
+      },
+      writerId: 'writer-a'
+    })
+
+    expect(acked).toEqual(edited)
+    expect(acked.writerId).toBe('writer-b')
+  })
+
+  it('still stamps the content when only the label moved during the push', async () => {
+    // An echo of an earlier revision admitted during the push changes the
+    // label alone; the content is still what was pushed, so its stamp lands.
+    const { port, beforeStart } = editDuringPushPort({ writerId: 'writer-b' })
+    const { acked } = await pushEdit({
+      port,
+      replicationIdentifier: 'ack-label-moved-during-push',
+      edit: { data: { n: 1 }, updatedAt: '2026-01-02T00:00:00Z' },
+      beforeStart,
+      writerId: 'writer-a'
+    })
+
+    expect(acked.data).toEqual({ n: 1 })
+    expect(acked.updatedAt).toBe('2026-01-02T00:00:00.500Z')
+    expect(acked.updatedAtCounter).toBe(4)
+    expect(acked.etag).toBe('"g.4"')
+    expect(acked.writerId).toBe('writer-a')
   })
 })

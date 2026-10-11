@@ -189,10 +189,10 @@ numbered so items and reviews can cite them.
    when the app updates are lost with the old replica, which can no longer be
    opened to drain them. The stamp members are stored as the server sends them,
    with no boundary guard on length, type, or `meta` completeness. That is the
-   trust `etag`, `createdBy`, and `epoch` get. The schema bounds describe the
-   server and are not enforced here. A consumer that wraps its storage in a
-   validator takes on the consequence that a malformed server document wedges
-   the pull.
+   trust `etag`, `createdBy`, `writerId`, and `epoch` get. The schema bounds
+   describe the server and are not enforced here. A consumer that wraps its
+   storage in a validator takes on the consequence that a malformed server
+   document wedges the pull.
 8. **The writer id is never an identity.** Unkeyed, clearable, unrecoverable,
    derived from no secret. The key prefix is required (the package mints no
    default key two apps could collide on) and the storage is an injected port. A
@@ -281,19 +281,27 @@ numbered so items and reviews can cite them.
     content write or delete declares one, and the server's declare-or-clear rule
     clears the stored label. The driver never mints, persists, or derives the
     label; the app does (`getWriterId` is its helper, invariant 8). The pull
-    side does not read it. The pull handler decrypts nothing (invariant 1), so a
-    replica's own echo has no decrypt to skip, and RxDB writes a pulled state
-    into the local row only where the collection's `isEqual` says it differs.
-    The feed's `writerId` is not carried into the local row either, since the
-    replica schema has no member for it (invariant 7). The replica-less engine
-    in `@interop/wallet-core/sync` stamps pushes the same way and additionally
+    side does not read the injected label. The pull handler decrypts nothing
+    (invariant 1), so a replica's own echo has no decrypt to skip, and RxDB
+    writes a pulled state into the local row only where the collection's
+    `isEqual` says it differs. The pull side does store the feed's label on the
+    row (`SyncedDoc.writerId`), on live documents and tombstones alike, and the
+    conflict entry carries the primary's. A tombstone's label is the deleting
+    request's. The member joined the replica schema as a breaking change for
+    every existing replica (invariant 7, the replica schema is stored state).
+    The stored label names the writer of the latest revision the row learned
+    from the server. It is advisory and not verified by the server. A local edit
+    leaves the previous revision's label in place until the push's ack
+    write-back or echo replaces it, so a consumer must not read it as proof of
+    who made the local edit. The replica-less engine in
+    `@interop/wallet-core/sync` stamps pushes the same way and additionally
     skips the decrypt of an own-writer echo whose `etag` its store confirms it
     holds; the two converge on the same server state either way.
 18. **The default `isEqual` compares every member of the synced document.**
     `statesEqual`, the default `isEqual` of `makeConflictHandler`, compares the
     server-managed members along with `_deleted`, the stamp members, and the two
     bodies. The members are `id`, `updatedAt`, `updatedAtCounter`, `originId`,
-    `createdBy`, `epoch`, `etag`, `metaEtag`, and `meta`
+    `createdBy`, `writerId`, `epoch`, `etag`, `metaEtag`, and `meta`
     (`src/conflictHandler.ts`); the optional ones are read off the one key table
     (`optionalBodyFields` in `src/types.ts`) that `copyOptionalBodyFields` and
     the schema test also run on, so a new optional member is declared once. The
@@ -313,18 +321,25 @@ numbered so items and reviews can cite them.
     `createdBy` and the server stamp, and an equality limited to the bodies and
     validators would let RxDB skip it, leaving every row the replica created
     with the client's `updatedAt` and no `createdBy`. A consumer that injects
-    its own `isEqual` takes on the same requirement. One timing window remains.
-    RxDB drops a pulled state for a row whose local state differs from its
-    assumed primary, and the pull checkpoint still moves past it. The ack
-    write-back is a plain local write, so the row is in that state until the
-    push cycle it triggers has run, and RxDB admits a nudged pull as soon as the
-    push that ran the write-back has finished, so a pull nudged during a push
-    lands in exactly that window. An echo dropped there costs nothing when the
-    ack carried what the echo would have brought. It stays load-bearing in three
-    cases: a server that answers `204` with no body, a hidden `ETag` (the
-    validators arrive only through the echo, and the write-back then stamps
-    nothing, so that deployment gets no new window), and a write-back failure
-    that was logged and swallowed.
+    its own `isEqual` takes on the same requirement. The comparison includes
+    `writerId`. No ack carries the label, but the server's declare-or-clear rule
+    makes it known by construction, so the write-back sets it beside the content
+    validator: the injected label when one is declared, and no member when
+    pushes declare none. An `isEqual` that ignored the label would let RxDB skip
+    another writer's revision that changed the label alone. The write-back's own
+    check that the row still holds the pushed state leaves the label out, since
+    an echo of an earlier revision admitted during the push moves the label
+    without touching the content. One timing window remains. RxDB drops a pulled
+    state for a row whose local state differs from its assumed primary, and the
+    pull checkpoint still moves past it. The ack write-back is a plain local
+    write, so the row is in that state until the push cycle it triggers has run,
+    and RxDB admits a nudged pull as soon as the push that ran the write-back
+    has finished, so a pull nudged during a push lands in exactly that window.
+    An echo dropped there costs nothing when the ack carried what the echo would
+    have brought. It stays load-bearing in three cases: a server that answers
+    `204` with no body, a hidden `ETag` (the validators arrive only through the
+    echo, and the write-back then stamps nothing, so that deployment gets no new
+    window), and a write-back failure that was logged and swallowed.
 
     The WAS spec is to require a server to expose `ETag` cross-origin, so a
     hidden-`ETag` server is non-conforming. The driver still handles it on a
@@ -476,10 +491,13 @@ the byoe-ecosystem layer map instead.
   agent produced a write; it attributes history and breaks last-write-wins ties.
   On the wire it is the WAS `writerId`, a member of the content record alone,
   which the push handler declares as the `Writer-Id` header on content writes
-  and deletes when the app injects one (invariant 17). It is distinct from
-  `originId`, which names the store that minted a stamp and is not an
-  attribution label. Avoid: device id, replica id, client id (a client id is
-  keyed and custodied; this is neither).
+  and deletes when the app injects one (invariant 17). The replica row stores
+  the feed's label as `SyncedDoc.writerId`, the latest revision's label as the
+  row last learned it from the server. A local edit does not replace it; the
+  push's ack write-back or echo does. It is distinct from `originId`, which
+  names the store that minted a stamp and is not an attribution label. Avoid:
+  device id, replica id, client id (a client id is keyed and custodied; this is
+  neither).
 - **Write stamp** -- the `(updatedAt, updatedAtCounter, originId)` triple the
   server mints on every versioned record (storage-core's `WriteStamp`). The
   `/meta` record's own stamp and its `generation` nest under `meta`

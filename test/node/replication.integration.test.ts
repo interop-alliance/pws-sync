@@ -280,8 +280,8 @@ async function localRow(
  * checkpoint on, and the ack write-back is such a write until the push cycle
  * it triggers has run. The ack carries the server state, so a dropped echo
  * costs the row nothing, but a barrier that waits on a member only the echo
- * brings (a feed-only `writerId`, say) would wait for a feed change that never
- * comes.
+ * brings (a `meta` the content write did not return, say) would wait for a
+ * feed change that never comes.
  */
 function settledReSync(replication: {
   awaitInSync(): Promise<boolean>
@@ -1836,9 +1836,14 @@ describe('WAS replication (RxDB + live was-teaching-server)', () => {
     await eventually(
       async () => (await observer.get({ id: 'cid-own-gone' })) === null
     )
-    // A's own echoes come back down the feed; the ack already stamped what
-    // they carry, so the nudge needs no wait for the pushes to settle.
-    replicationA.reSync()
+    // A's own echoes come back down the feed. The ack write-back stamped
+    // everything they carry, the label included, so the nudge waits for the
+    // pushes to settle before it pulls.
+    await eventually(
+      async () =>
+        (await localRow(replicaA, 'cid-own'))?.writerId === 'writer-a',
+      settledReSync(replicationA)
+    )
     await replicationA.awaitInSync()
     await replicationA.cancel()
     const replicaAState = (await replicaA.find().exec())
@@ -1871,11 +1876,21 @@ describe('WAS replication (RxDB + live was-teaching-server)', () => {
     ])
     // The writer's own replica agrees with a fresh one on every member of
     // every row it replicated, the server-assigned `createdBy` and `updatedAt`
-    // of its own rows included: their feed echo landed over the ack write-back.
+    // and the label of its own rows included: the ack write-back and the feed
+    // echo left the same row.
     expect(replicaAState).toEqual(withLabel)
-    for (const doc of withLabel) {
-      expect('writerId' in doc).toBe(false)
-    }
+    // Each row holds the label its latest revision was declared under, and a
+    // row written with none holds no member for it.
+    const labels = Object.fromEntries(
+      withLabel.map(doc => [doc.id, doc.writerId])
+    )
+    expect(labels).toEqual({
+      'cid-foreign': 'writer-b',
+      'cid-own': 'writer-a',
+      'cid-unlabeled': undefined
+    })
+    const unlabeled = withLabel.find(doc => doc.id === 'cid-unlabeled')!
+    expect('writerId' in unlabeled).toBe(false)
   })
 
   it('holds the server state from the ack when the echo is pulled into the write-back window and dropped', async () => {

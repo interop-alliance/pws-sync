@@ -5,8 +5,10 @@
  * The pull side of the WAS replication driver: the `changes`-feed request and
  * response mapping, and the RxDB pull handler built from it. Maps each wire
  * document (`{ id, _deleted, updatedAt, updatedAtCounter, originId, meta?,
- * data?, custom?, epoch?, createdBy?, etag?, metaEtag? }`) into an RxDB
- * `WithDeleted<SyncedDoc>`, and applies the empty-page `checkpoint: null` rule.
+ * data?, custom?, epoch?, createdBy?, writerId?, etag?, metaEtag? }`) into an
+ * RxDB `WithDeleted<SyncedDoc>`, and applies the empty-page `checkpoint: null`
+ * rule. The feed's `writerId` label is carried into the row like `createdBy`,
+ * on tombstones too.
  */
 import { isSyncCheckpointError } from '@interop/was-client/sync'
 import type {
@@ -27,15 +29,14 @@ import { log } from './log.js'
  * content write stamp (`updatedAt`, `updatedAtCounter`, `originId`) and the
  * nested `meta` stamp are carried verbatim; `meta` / `custom` are present only
  * once metadata has been written for the resource, and are simply absent
- * otherwise. The server-managed
- * `createdBy` creator DID is carried across on live documents and tombstones
- * alike (it rides the feed on a delete too), and the opaque `epoch` key-epoch id
- * likewise; each is simply absent when the server holds none. The opaque `etag`
- * / `metaEtag` validators are carried across the same way, so a later push can
- * echo one back verbatim as `ifMatch` without a separate re-read. `_deleted`
- * becomes RxDB's native deleted flag. The feed's `writerId` label is not
- * carried across: the replica schema has no member for it, so a labeled and an
- * unlabeled write map to the same row.
+ * otherwise. The server-managed `createdBy` creator DID is carried across on
+ * live documents and tombstones alike (it rides the feed on a delete too). The
+ * `writerId` label the latest revision was declared under is carried the same
+ * way, a tombstone's being the deleting request's label, and so is the opaque
+ * `epoch` key-epoch id; each is simply absent when the server holds none. The
+ * opaque `etag` / `metaEtag` validators are carried across the same way, so a
+ * later push can echo one back verbatim as `ifMatch` without a separate
+ * re-read. `_deleted` becomes RxDB's native deleted flag.
  *
  * @param doc {WireDoc}
  * @returns {WithDeleted<SyncedDoc>}

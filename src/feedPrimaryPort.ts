@@ -43,16 +43,14 @@ const PAGE_SIZE = 500
 
 /**
  * Builds a `PrimaryState` from a `changes`-feed document (all fields in-body).
- * The write stamp and the nested `meta` ride along with the other optional
- * members. The feed's `writerId` label rides along explicitly: it is not one
- * of the optional body fields (the local row has no member for it), but the
- * push handler's delete retry reads it off the primary.
+ * The write stamp, the nested `meta`, and the feed's `writerId` label ride
+ * along with the other optional members. The push handler's delete retry reads
+ * the label off the primary, and the conflict entry carries it into the row.
  */
 function toPrimaryState(doc: WireDoc): PrimaryState {
   const primary: PrimaryState = {
     updatedAt: doc.updatedAt,
-    deleted: doc._deleted,
-    ...(doc.writerId !== undefined && { writerId: doc.writerId })
+    deleted: doc._deleted
   }
   copyOptionalBodyFields({ source: doc, target: primary })
   return primary

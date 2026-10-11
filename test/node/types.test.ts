@@ -84,6 +84,7 @@ describe('copyOptionalBodyFields', () => {
         meta: stamp,
         epoch: 'epoch-1',
         createdBy: 'did:key:z6MkCreator',
+        writerId: 'writer-a',
         etag: '"etag-7"',
         metaEtag: '"etag-3"'
       },
@@ -97,9 +98,16 @@ describe('copyOptionalBodyFields', () => {
       meta: stamp,
       epoch: 'epoch-1',
       createdBy: 'did:key:z6MkCreator',
+      writerId: 'writer-a',
       etag: '"etag-7"',
       metaEtag: '"etag-3"'
     })
+  })
+
+  it('carries the writerId label off a source holding only a label', () => {
+    const target: OptionalBodyFields = { etag: '"etag-1"' }
+    copyOptionalBodyFields({ source: { writerId: 'writer-b' }, target })
+    expect(target).toStrictEqual({ etag: '"etag-1"', writerId: 'writer-b' })
   })
 
   it('copies a zero updatedAtCounter, which is a valid stamp', () => {
@@ -119,6 +127,7 @@ describe('copyOptionalBodyFields', () => {
       'custom',
       'epoch',
       'createdBy',
+      'writerId',
       'etag',
       'metaEtag'
     ]) {

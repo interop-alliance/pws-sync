@@ -180,7 +180,8 @@ export function isAuthError(err: unknown): boolean {
  *   as the `Writer-Id` header (a metadata write sends none). When absent, pushes
  *   declare no label, which clears any stored one under the server's
  *   declare-or-clear rule. A session that must not reveal a stable label to
- *   the host leaves it absent or passes a per-session one.
+ *   the host leaves it absent or passes a per-session one. The feed's label
+ *   for each revision lands on the row as `SyncedDoc.writerId` either way.
  * @returns {SyncController}
  */
 export function createSyncController({

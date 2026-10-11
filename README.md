@@ -190,6 +190,12 @@ and keeps the label (`getWriterId` is a helper for that); a session that must
 not reveal a stable label to the host leaves it absent or passes a per-session
 one. The label is advisory and never an identity.
 
+The pull side stores the feed's label for each revision on the row as
+`SyncedDoc.writerId`, tombstones included, whoever declared it. It names the
+writer of the latest revision the row learned from the server. A local edit
+leaves the previous label in place until the push's ack write-back or echo
+replaces it, so it is no proof of who made a local edit.
+
 ### Logging
 
 The package logs through a structural `Logger` port (four two-arg methods:

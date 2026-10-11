@@ -65,9 +65,15 @@ export type WithDeleted<DocType> = DocType & { _deleted: boolean }
 
 /**
  * The two fields the last-write-wins rule reads off a payload: the app-owned
- * ISO-8601 edit stamp and the writing client's id (the exact-instant
+ * ISO-8601 edit stamp and the writer's attribution label (the exact-instant
  * tiebreaker). Read off a doc with {@link lwwFields}; compared with
  * `remotePayloadWins` from `@interop/social-core`, which owns the rule.
+ *
+ * The app writes the same label here and declares it on the push as the
+ * `Writer-Id` header, so the payload's `writerId` and the row's
+ * {@link SyncedDoc.writerId} are two carriers of one label, not two labels.
+ * The payload's is set by the writer at edit time; the row's is the last label
+ * the replica learned from the server (see {@link OptionalBodyFields.writerId}).
  */
 export interface LwwFields {
   updatedAt: string
@@ -97,10 +103,11 @@ export function lwwFields(doc: unknown): LwwFields | null {
  * travels in ({@link WireDoc} on the feed, {@link SyncedDoc} locally,
  * {@link PrimaryState} on the conflict re-read): the two server-minted members
  * of the content write stamp, the metadata stamp and body, the content body,
- * the content body's key-epoch id, the server-managed creator DID, and the
- * opaque `ETag` validators. Each is genuinely absent rather than `undefined`
- * when the server has nothing for it, so every mapping between the shapes
- * copies them conditionally -- see {@link copyOptionalBodyFields}.
+ * the content body's key-epoch id, the server-managed creator DID, the latest
+ * revision's writer-attribution label, and the opaque `ETag` validators. Each
+ * is genuinely absent rather than `undefined` when the server has nothing for
+ * it, so every mapping between the shapes copies them conditionally -- see
+ * {@link copyOptionalBodyFields}.
  */
 export interface OptionalBodyFields {
   /**
@@ -133,6 +140,18 @@ export interface OptionalBodyFields {
    */
   createdBy?: string
   /**
+   * The writer-attribution label the latest revision was declared under (the
+   * WAS `writerId`, a member of the content record alone), carried verbatim
+   * off the feed on live documents and tombstones alike, and absent when the
+   * server holds none. Advisory and not verified by the server, and it
+   * describes the latest revision only. Like the server-minted stamp members,
+   * on a local row it is the last server state the row learned: a local edit
+   * leaves the previous revision's label in place until the push's ack
+   * write-back or echo replaces it, so a consumer must not read it as proof of
+   * who made the local edit.
+   */
+  writerId?: string
+  /**
    * The content `ETag`, quoted, exactly as the server last reported it (off
    * the feed, a re-read, or a write's own ack) -- echo it back verbatim as a
    * later content write's `ifMatch`. Opaque: no revision number is read out
@@ -160,6 +179,7 @@ export const optionalBodyFields = [
   'custom',
   'epoch',
   'createdBy',
+  'writerId',
   'etag',
   'metaEtag'
 ] as const satisfies readonly (keyof OptionalBodyFields)[]
@@ -265,8 +285,8 @@ export interface ReplicationCheckpoint {
  * write's `ifMatch` without a separate {@link WasSyncPort.get}. `epoch` is the
  * opaque key-epoch id the content body was encrypted under, and `createdBy` the
  * server-managed creator DID, both moved verbatim. `writerId` is the
- * writer-attribution label the write was declared under, when one was; the
- * pull mapping does not carry it into the local row. was-client's own feed
+ * writer-attribution label the revision was declared under, when one was,
+ * carried into the local row the same way. was-client's own feed
  * document type, aliased here so the driver and the port agree by construction.
  */
 export type WireDoc = ClientWireDoc
@@ -300,8 +320,8 @@ export interface SyncedDoc extends OptionalBodyFields {
  * The current server-side state of a single resource, as read back for the 412
  * conflict path: was-client's own primary state (the content `updatedAt`, plus
  * the optional `updatedAtCounter` / `originId` / `meta` / `data` / `custom` /
- * `createdBy` / `epoch` and the validators) plus the OPTIONAL `deleted` flag
- * that distinguishes a tombstone from a live resource.
+ * `createdBy` / `epoch` / `writerId` and the validators) plus the OPTIONAL
+ * `deleted` flag that distinguishes a tombstone from a live resource.
  *
  * The flag is optional because the two `get` implementations report an absent
  * resource differently. A feed-backed read ({@link withFeedPrimaryRead})

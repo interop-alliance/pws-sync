@@ -105,6 +105,12 @@ export type ConflictWinner = 'local' | 'remote'
  * RxDB skip it, so every row this replica created would keep the client's
  * `updatedAt`, never learn its `createdBy`, and never hold a server stamp.
  *
+ * The `writerId` label is compared too. No ack carries one, but the ack
+ * write-back sets it from the injected label under the server's
+ * declare-or-clear rule, so an own write's echo matches the row on it.
+ * Ignoring the label would let RxDB skip another writer's revision that
+ * changed the label alone.
+ *
  * The bodies and `meta` compare canonically ({@link bodiesEqual}), so two
  * distinct but member-equal `meta` objects compare equal and a member the
  * server adds later still registers as a difference; every other member

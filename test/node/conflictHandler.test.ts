@@ -194,6 +194,22 @@ describe('makeLwwConflictHandler', () => {
     expect(handler.isEqual(stamped, { ...stamped, id: 'r2' })).toBe(false)
   })
 
+  it('isEqual differs on the writerId label alone', () => {
+    // The echo of an own write on a server that answers writes with a body:
+    // the ack stamped everything but the label, so the label alone differs
+    // and the echo must still land.
+    const base = row({ updatedAt: 't1', writerId: 'd1' }, { counter: 1 })
+    const labeled = { ...base, writerId: 'writer-a' }
+    expect(handler.isEqual(labeled, { ...labeled })).toBe(true)
+    expect(handler.isEqual(labeled, { ...base, writerId: 'writer-b' })).toBe(
+      false
+    )
+    // An absent label equals only an absent one.
+    expect('writerId' in base).toBe(false)
+    expect(handler.isEqual(base, labeled)).toBe(false)
+    expect(handler.isEqual(labeled, base)).toBe(false)
+  })
+
   it('isEqual differs on updatedAtCounter and on originId', () => {
     const base = row(
       { updatedAt: 't1', writerId: 'd1' },

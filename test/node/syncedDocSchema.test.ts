@@ -36,6 +36,7 @@ describe('syncedDocSchema', () => {
           required: ['updatedAt', 'updatedAtCounter', 'originId', 'generation']
         },
         createdBy: { type: 'string', maxLength: 256 },
+        writerId: { type: 'string', maxLength: 256 },
         epoch: { type: 'string', maxLength: 256 },
         etag: { type: 'string', maxLength: 256 },
         metaEtag: { type: 'string', maxLength: 256 },

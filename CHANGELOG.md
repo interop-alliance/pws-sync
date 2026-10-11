@@ -1,5 +1,25 @@
 # @interop/was-sync Changelog
 
+## 0.9.0 - TBD
+
+### Changed
+
+- **BREAKING**: the replica schema and `SyncedDoc` gain an optional `writerId`.
+  The pull mapping carries the feed's writer-attribution label into the row,
+  tombstones included, and the conflict entry carries the primary's. The schema
+  version stays at `0`, so RxDB refuses to open an existing replica with the new
+  shape. The consumer must forget every existing replica (remove the collection)
+  and re-pull it. The consumer must forget the collection's replication meta
+  (`rx-replication-meta-*`) with it or change its `replicationIdentifier`, or a
+  retained checkpoint resumes past every row and the new replica comes up empty.
+  Local writes not yet pushed at the update are lost.
+  - `statesEqual` compares `writerId` strictly.
+  - The ack write-back sets `writerId` beside the content validator, under the
+    server's declare-or-clear rule: the injected label, or no member when pushes
+    declare none. Its check that the row still holds the pushed state ignores
+    the label.
+- Update the `@interop/was-client` devDependency to `^0.94.0`.
+
 ## 0.8.2 - 2026-10-05
 
 ### Changed

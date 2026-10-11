@@ -1980,6 +1980,7 @@ describe('createPushHandler benign delete retry', () => {
     ])
 
     expect(port.deletes).toEqual([etagFor(1)])
+    // The conflict entry carries the other writer's label off the primary.
     expect(conflicts).toStrictEqual([
       {
         id: 'r1',
@@ -1987,6 +1988,7 @@ describe('createPushHandler benign delete retry', () => {
         ...contentStamp,
         etag: etagFor(3),
         data: { a: 1 },
+        writerId: 'writer-b',
         _deleted: false
       }
     ])
@@ -2257,6 +2259,7 @@ describe('createPushHandler validator-less delete', () => {
     const conflicts = await push([validatorLessDelete])
 
     expect(port.writes).toEqual([])
+    // The conflict entry carries the other writer's label off the primary.
     expect(conflicts).toStrictEqual([
       {
         id: 'r1',
@@ -2264,6 +2267,7 @@ describe('createPushHandler validator-less delete', () => {
         ...contentStamp,
         etag: etagFor(1),
         data: { a: 1 },
+        writerId: 'w-b',
         _deleted: false
       }
     ])

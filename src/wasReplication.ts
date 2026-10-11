@@ -18,7 +18,12 @@ import {
 } from 'rxdb/plugins/replication'
 import type { RxCollection } from 'rxdb/plugins/core'
 import { isMetaStamp, isWriteStamp } from '@interop/was-client/sync'
-import type { ReplicationCheckpoint, SyncedDoc, WasSyncPort } from './types.js'
+import type {
+  OptionalBodyFields,
+  ReplicationCheckpoint,
+  SyncedDoc,
+  WasSyncPort
+} from './types.js'
 import { bodiesEqual } from './types.js'
 import { statesEqual } from './conflictHandler.js'
 import { syncedDocSchema } from './syncedDocSchema.js'
@@ -75,7 +80,8 @@ function fitsSchema({
 /**
  * Copies onto `patch` each member of `candidate` the row does not already
  * hold, so a row that is already current gets no patch and no follow-up push
- * cycle.
+ * cycle. A candidate member set to `undefined` asks for the row's member to be
+ * removed, and is copied only while the row holds one.
  *
  * @param options {object}
  * @param options.patch {Record<string, unknown>}
@@ -116,18 +122,36 @@ function assignDiffering({
  * the content stamp is ignored. And the content stamp is patched only while
  * the row still holds the state that was pushed ({@link statesEqual}), so a
  * local edit made during the push keeps its own stamp even when the edit left
- * `updatedAt` alone (the validators are patched regardless). A member longer
- * than the schema allows is skipped at `debug`, so the single patch cannot
- * throw on it. Everything lands in one `incrementalPatch`.
+ * `updatedAt` alone (the validators are patched regardless). That comparison
+ * leaves the `writerId` label out: the label is not content, and an echo of
+ * an earlier revision admitted during the push moves it without touching what
+ * was pushed. A member longer than the schema allows is skipped at `debug`,
+ * so the single write cannot throw on it.
+ *
+ * The `writerId` label rides beside the content validator too, though no ack
+ * carries one: the server's declare-or-clear rule makes the stored label
+ * known by construction. A content write declared the injected label, so the
+ * row gets it; a content write without one cleared the stored label, so the
+ * row's member is removed. A metadata write leaves the label alone, so the
+ * `/meta` ack patches none. Everything lands in one write.
  *
  * A failure is logged at `warn` and swallowed: the write itself succeeded, and
  * a missed write-back only means the acked state is adopted from the change
  * feed's echo on a later pull.
  *
- * @param rxCollection {RxCollection<SyncedDoc>}
+ * @param options {object}
+ * @param options.rxCollection {RxCollection<SyncedDoc>}
+ * @param [options.writerId] {string}   the label every content write and
+ *   delete declares; absent when pushes declare none
  * @returns {(ack: PushWriteAck) => Promise<void>}
  */
-function createAckWriteBack(rxCollection: RxCollection<SyncedDoc>) {
+function createAckWriteBack({
+  rxCollection,
+  writerId
+}: {
+  rxCollection: RxCollection<SyncedDoc>
+  writerId?: string
+}) {
   return async function writeBack(ack: PushWriteAck): Promise<void> {
     try {
       const doc = await rxCollection.findOne(ack.id).exec()
@@ -142,10 +166,14 @@ function createAckWriteBack(rxCollection: RxCollection<SyncedDoc>) {
         const { etag, createdBy } = content
         const candidate: Partial<SyncedDoc> = { etag }
         // The stamp is patched whole or not at all; a partial one is left out.
-        // `toJSON()` strips `_deleted`; a row `findOne` returned is live.
+        // `toJSON()` strips `_deleted`; a row `findOne` returned is live. The
+        // label is taken from the pushed state so the comparison ignores it.
         if (
           isWriteStamp(content) &&
-          statesEqual({ ...current, _deleted: false }, ack.pushedState)
+          statesEqual(
+            { ...current, _deleted: false, writerId: ack.pushedState.writerId },
+            ack.pushedState
+          )
         ) {
           const { updatedAt, updatedAtCounter, originId } = content
           const stamp = { updatedAt, updatedAtCounter, originId }
@@ -158,6 +186,13 @@ function createAckWriteBack(rxCollection: RxCollection<SyncedDoc>) {
           fitsSchema({ id, members: { createdBy } })
         ) {
           candidate.createdBy = createdBy
+        }
+        // Declared, the label lands; undeclared, `undefined` removes the member.
+        if (
+          writerId === undefined ||
+          fitsSchema({ id, members: { writerId } })
+        ) {
+          candidate.writerId = writerId
         }
         assignDiffering({ patch, current, candidate })
       }
@@ -172,7 +207,19 @@ function createAckWriteBack(rxCollection: RxCollection<SyncedDoc>) {
         assignDiffering({ patch, current, candidate })
       }
       if (Object.keys(patch).length > 0) {
-        await doc.incrementalPatch(patch)
+        // `incrementalPatch` cannot remove a member, so the patch is applied
+        // by hand: an `undefined` value deletes the member instead.
+        await doc.incrementalModify(docData => {
+          for (const [member, value] of Object.entries(patch)) {
+            if (value === undefined) {
+              // Only an optional member is ever asked to be removed.
+              delete docData[member as keyof OptionalBodyFields]
+            } else {
+              Object.assign(docData, { [member]: value })
+            }
+          }
+          return docData
+        })
       }
     } catch (err) {
       // Best-effort: the server write was accepted; the feed's echo on the
@@ -206,12 +253,14 @@ function createAckWriteBack(rxCollection: RxCollection<SyncedDoc>) {
  *   delete declares it as the `Writer-Id` header; a metadata write sends none,
  *   since the label is a member of the content record alone. When absent,
  *   pushes declare no label, which clears any stored one under the server's
- *   declare-or-clear rule. A session
- *   that must not reveal a stable label to the host leaves it absent or passes
- *   a per-session one. The pull side does not read it: the pull handler
- *   decrypts nothing (bodies are opaque), so a replica's own echo has no
- *   decrypt to skip, and RxDB writes a pulled state into the local row only
- *   where the collection's `isEqual` says it differs.
+ *   declare-or-clear rule. A session that must not reveal a stable label to
+ *   the host leaves it absent or passes a per-session one. The pull side does
+ *   not read this option: the pull handler decrypts nothing (bodies are
+ *   opaque), so a replica's own echo has no decrypt to skip, and RxDB writes a
+ *   pulled state into the local row only where the collection's `isEqual` says
+ *   it differs. The feed's label for each revision, whoever declared it, lands
+ *   on the row as `SyncedDoc.writerId`; an own content write's lands from the
+ *   ack write-back too ({@link createAckWriteBack}).
  * @returns {RxReplicationState<SyncedDoc, ReplicationCheckpoint>}
  */
 export function createWasReplication({
@@ -249,7 +298,7 @@ export function createWasReplication({
     push: {
       handler: createPushHandler({
         port: wasPort,
-        onWriteAccepted: createAckWriteBack(rxCollection),
+        onWriteAccepted: createAckWriteBack({ rxCollection, writerId }),
         ...(writerId !== undefined && { writerId })
       }),
       batchSize

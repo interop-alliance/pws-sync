@@ -200,7 +200,7 @@ describe('wireDocToRxDoc', () => {
     expect('meta' in rx).toBe(false)
   })
 
-  it('does not carry the writerId into the local row, live or tombstone', () => {
+  it('carries the writerId into the local row, live or tombstone', () => {
     const live = wire({ id: 'abc', etag: '"e2"', data: { hello: 'world' } })
     const tombstone = wire({
       id: 'gone',
@@ -233,9 +233,16 @@ describe('wireDocToRxDoc', () => {
       ]
     ]
     for (const [doc, expected] of cases) {
-      const stamped = wireDocToRxDoc({ ...doc, writerId: 'writer-a' })
-      expect(stamped).toStrictEqual(expected)
-      expect('writerId' in stamped).toBe(false)
+      // A labeled revision: the label lands on the row verbatim. On a
+      // tombstone it is the deleting request's label.
+      expect(wireDocToRxDoc({ ...doc, writerId: 'writer-a' })).toStrictEqual({
+        ...expected,
+        writerId: 'writer-a'
+      })
+      // An unlabeled revision: the member stays absent, not `undefined`.
+      const unlabeled = wireDocToRxDoc(doc)
+      expect(unlabeled).toStrictEqual(expected)
+      expect('writerId' in unlabeled).toBe(false)
     }
   })
 })

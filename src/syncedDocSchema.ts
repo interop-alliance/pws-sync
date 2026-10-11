@@ -4,23 +4,27 @@
 /**
  * The single generic RxDB JSON schema reused across every synced collection.
  * One shape (`{ id, updatedAt, updatedAtCounter?, originId?, meta?, createdBy?,
- * epoch?, etag?, metaEtag?, data?, custom? }`) carries both a content record
- * and an independently-stamped metadata sub-resource; `_deleted` is added by
- * RxDB via `deletedField`. `updatedAt`, `updatedAtCounter`, and `originId` are
- * the content record's write stamp as the server minted it; `updatedAt` alone
- * is required, since a fresh local row needs a wall-clock value for the index
- * before the server has stamped it, and the server's value replaces it from
- * the write ack or the echo. `meta` is the `/meta` record's own stamp with its generation, stored
- * nested as the wire shapes it (decision 0002), absent until metadata has been
- * written and complete once present. `data` / `custom` are opaque bodies
- * (plaintext JSON, or an EDV envelope on an encrypted collection), so they are
- * typed as free-form objects. `createdBy` is the server-managed creator DID,
- * adopted from the create's ack or carried down from the `changes` feed. `epoch` is the opaque key-epoch id the
- * resource's envelope was encrypted under (absent = pre-epoch, encrypted
- * directly to the vault key), also carried down the feed. `etag` / `metaEtag`
- * are the opaque `ETag` validators the server last reported for the content and
- * `/meta` sub-resources -- echoed back verbatim as a later conditional write's
- * `ifMatch`.
+ * writerId?, epoch?, etag?, metaEtag?, data?, custom? }`) carries both a
+ * content record and an independently-stamped metadata sub-resource;
+ * `_deleted` is added by RxDB via `deletedField`. `updatedAt`,
+ * `updatedAtCounter`, and `originId` are the content record's write stamp as
+ * the server minted it; `updatedAt` alone is required, since a fresh local row
+ * needs a wall-clock value for the index before the server has stamped it, and
+ * the server's value replaces it from the write ack or the echo. `meta` is the
+ * `/meta` record's own stamp with its generation, stored nested as the wire
+ * shapes it (decision 0002), absent until metadata has been written and
+ * complete once present. `data` / `custom` are opaque bodies (plaintext JSON,
+ * or an EDV envelope on an encrypted collection), so they are typed as
+ * free-form objects. `createdBy` is the server-managed creator DID, adopted
+ * from the create's ack or carried down from the `changes` feed. `writerId` is
+ * the writer-attribution label the latest revision was declared under, carried
+ * down the feed (tombstones included) and set from a content write's ack to
+ * the label that write declared. `epoch` is
+ * the opaque key-epoch id the resource's envelope was encrypted under (absent
+ * = pre-epoch, encrypted directly to the vault key), also carried down the
+ * feed. `etag` / `metaEtag` are the opaque `ETag` validators the server last
+ * reported for the content and `/meta` sub-resources -- echoed back verbatim
+ * as a later conditional write's `ifMatch`.
  *
  * The schema is documentation unless a consumer registers a validator: this
  * package registers none, its tests run on bare memory storage, and the bounds
@@ -56,8 +60,8 @@ export interface SyncedDocSchema {
  * The shape is stored state rather than a code detail: RxDB hashes it and
  * refuses to open an existing replica whose stored hash differs at the same
  * `version`. It ships at `version: 0` with no migration strategy, so a replica
- * created under a different shape is forgotten and re-pulled at the next login
- * rather than migrated.
+ * created under a different shape (one from before the `writerId` member, say)
+ * is forgotten and re-pulled at the next login rather than migrated.
  *
  * @returns {SyncedDocSchema}
  */
@@ -88,6 +92,9 @@ export function syncedDocSchema(): SyncedDocSchema {
       },
       // The server-managed creator DID (a `did:key`), absent when unrecorded.
       createdBy: { type: 'string', maxLength: 256 },
+      // The writer-attribution label the latest revision was declared under,
+      // off the feed; absent when the server holds none. Not indexed.
+      writerId: { type: 'string', maxLength: 256 },
       // The opaque key-epoch id the envelope was encrypted under, absent when
       // pre-epoch (encrypted directly to the vault key). Not indexed.
       epoch: { type: 'string', maxLength: 256 },
