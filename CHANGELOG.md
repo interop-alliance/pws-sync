@@ -1,5 +1,15 @@
 # @interop/was-sync Changelog
 
+## 0.9.2 - TBD
+
+### Changed
+
+- Verified against `@interop/was-client` 0.97.0, whose `WasClient` takes the
+  Spaces Repository URL as `serverUrl`. The controller port's `serverUrl` is
+  unchanged: it is read only for the default replication identifier, so it stays
+  the server root (the client's `baseUrl`) to keep persisted checkpoints stable,
+  and its doc now says so.
+
 ## 0.9.1 - 2026-10-11
 
 ### Changed

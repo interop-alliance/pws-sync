@@ -23,6 +23,7 @@ import { openTempBackend, startTestServer } from 'was-teaching-server/testing'
 import { Ed25519VerificationKey } from '@interop/ed25519-verification-key'
 import { captureLogger } from '@interop/logger'
 import { WasClient } from '@interop/was-client'
+import { spacesUrl } from '@interop/was-client/paths'
 import {
   createWasSyncPort,
   deriveSpaceId,
@@ -58,7 +59,8 @@ let collectionSerial = 0
 beforeAll(async () => {
   // The server owns the temp backend, so closing it removes the data dir.
   // Zcap invocation targets embed the port, so the client is built from the
-  // `serverUrl` the boot returns.
+  // `serverUrl` the boot returns (the server root; the client takes its Spaces
+  // Repository URL beneath it).
   server = await startTestServer({
     backend: await openTempBackend({
       prefix: 'was-sync-integration-',
@@ -69,7 +71,10 @@ beforeAll(async () => {
 
   const keyPair = await Ed25519VerificationKey.generate({ seed: SEED })
   controllerDid = `did:key:${keyPair.fingerprint()}`
-  was = WasClient.fromSigner({ serverUrl, signer: keyPair.didKeySigner() })
+  was = WasClient.fromSigner({
+    serverUrl: spacesUrl({ baseUrl: serverUrl }),
+    signer: keyPair.didKeySigner()
+  })
   spaceId = deriveSpaceId(controllerDid)
 })
 

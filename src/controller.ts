@@ -141,8 +141,11 @@ export function isAuthError(err: unknown): boolean {
  * Builds a controller over one session's collections.
  *
  * The port is inlined at the signature because it is used once. Its members:
- * `wasClient` / `spaceId` / `serverUrl` locate the remote Space (and build the
- * default `replicationIdentifier`); each `collections` entry names a LOGICAL
+ * `wasClient` and `spaceId` locate the remote Space; `serverUrl` is read only
+ * to build the default `replicationIdentifier`, so it is any string stable
+ * across sessions for one server (by convention the client's `baseUrl`, the
+ * server root), and changing its shape orphans every replica's persisted
+ * checkpoint; each `collections` entry names a LOGICAL
  * key, the WAS collection id, and optionally the delegated capability every
  * request for that collection invokes; `rxCollection` resolves the local end by
  * logical key.
