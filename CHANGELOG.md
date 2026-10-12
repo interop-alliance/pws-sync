@@ -1,5 +1,16 @@
 # @interop/was-sync Changelog
 
+## 0.10.0 - TBD
+
+### Changed
+
+- The controller port's `serverUrl` member is renamed `baseUrl`. It was never an
+  address: it is read only for the default replication identifier, and the value
+  it takes is the server root (the client's `baseUrl`), which the old name no
+  longer described once `WasClient` took the Spaces Repository URL as its
+  `serverUrl`. The identifier's value is unchanged, so persisted checkpoints are
+  kept.
+
 ## 0.9.3 - 2026-10-12
 
 ### Changed

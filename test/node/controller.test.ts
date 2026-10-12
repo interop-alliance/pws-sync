@@ -202,7 +202,7 @@ describe('createSyncController lifecycle', () => {
       port: {
         wasClient,
         spaceId: 'space-1',
-        serverUrl: 'https://was.example',
+        baseUrl: 'https://was.example',
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: rxCollection as never
       },
@@ -229,7 +229,7 @@ describe('createSyncController lifecycle', () => {
       port: {
         wasClient,
         spaceId: 'space-1',
-        serverUrl: 'https://was.example',
+        baseUrl: 'https://was.example',
         // Two registry entries may share one WAS id, so the callback carries
         // both and neither binding has to map.
         collections: [{ key: 'wallet-notes', id: 'notes' }],
@@ -262,7 +262,7 @@ describe('createSyncController lifecycle', () => {
       port: {
         wasClient,
         spaceId: 'space-1',
-        serverUrl: 'https://was.example',
+        baseUrl: 'https://was.example',
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never
       },
@@ -286,7 +286,7 @@ describe('createSyncController lifecycle', () => {
       port: {
         wasClient,
         spaceId: 'space-1',
-        serverUrl: 'https://was.example',
+        baseUrl: 'https://was.example',
         collections: [
           {
             key: 'notes',
@@ -324,7 +324,7 @@ describe('createSyncController lifecycle', () => {
       port: {
         wasClient,
         spaceId: 'space-1',
-        serverUrl: 'https://was.example',
+        baseUrl: 'https://was.example',
         collections: [
           { key: 'notes', id: 'notes' },
           { key: 'posts', id: 'posts' }
@@ -346,7 +346,7 @@ describe('createSyncController lifecycle', () => {
       port: {
         wasClient,
         spaceId: 'space-1',
-        serverUrl: 'https://was.example',
+        baseUrl: 'https://was.example',
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never
       },
@@ -370,7 +370,7 @@ describe('createSyncController lifecycle', () => {
       port: {
         wasClient,
         spaceId: 'space-1',
-        serverUrl: 'https://was.example',
+        baseUrl: 'https://was.example',
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never,
         replicationIdentifier: ({ collectionId }) => `custom:${collectionId}`
@@ -395,7 +395,7 @@ describe('createSyncController lifecycle', () => {
         port: {
           wasClient,
           spaceId: 'space-1',
-          serverUrl: 'https://was.example',
+          baseUrl: 'https://was.example',
           collections: [
             { key: 'notes', id: 'notes' },
             { key: 'tasks', id: 'tasks' }
@@ -437,7 +437,7 @@ describe('createSyncController failed bring-up', () => {
       port: {
         wasClient,
         spaceId: 'space-1',
-        serverUrl: 'https://was.example',
+        baseUrl: 'https://was.example',
         collections: [
           { key: 'notes', id: 'notes' },
           { key: 'posts', id: 'posts' }
@@ -470,7 +470,7 @@ describe('createSyncController failed bring-up', () => {
       port: {
         wasClient,
         spaceId: 'space-1',
-        serverUrl: 'https://was.example',
+        baseUrl: 'https://was.example',
         collections: [
           { key: 'notes', id: 'notes' },
           { key: 'posts', id: 'posts' }
@@ -495,7 +495,7 @@ describe('createSyncController failed bring-up', () => {
       port: {
         wasClient,
         spaceId: 'space-1',
-        serverUrl: 'https://was.example',
+        baseUrl: 'https://was.example',
         collections: [
           { key: 'notes', id: 'notes' },
           { key: 'posts', id: 'posts' }
@@ -526,7 +526,7 @@ describe('createSyncController error escalation', () => {
       port: {
         wasClient,
         spaceId: 'space-1',
-        serverUrl: 'https://was.example',
+        baseUrl: 'https://was.example',
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never
       },
@@ -588,7 +588,7 @@ describe('createSyncController remote change', () => {
       port: {
         wasClient,
         spaceId: 'space-1',
-        serverUrl: 'https://was.example',
+        baseUrl: 'https://was.example',
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => collection) as never
       },
@@ -623,7 +623,7 @@ describe('createSyncController sync port', () => {
       port: {
         wasClient: client,
         spaceId: 'space-1',
-        serverUrl: 'https://was.example',
+        baseUrl: 'https://was.example',
         collections: [
           {
             key: 'notes',
@@ -720,7 +720,7 @@ describe('createSyncController polling and reachability', () => {
       port: {
         wasClient,
         spaceId: 'space-1',
-        serverUrl: 'https://was.example',
+        baseUrl: 'https://was.example',
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never
       },
@@ -761,7 +761,7 @@ describe('createSyncController polling and reachability', () => {
       port: {
         wasClient,
         spaceId: 'space-1',
-        serverUrl: 'https://was.example',
+        baseUrl: 'https://was.example',
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never
       },
@@ -785,7 +785,7 @@ describe('createSyncController stop', () => {
       port: {
         wasClient,
         spaceId: 'space-1',
-        serverUrl: 'https://was.example',
+        baseUrl: 'https://was.example',
         collections: [
           { key: 'notes', id: 'notes' },
           { key: 'posts', id: 'posts' }
@@ -823,7 +823,7 @@ describe('createSyncController stop', () => {
       port: {
         wasClient,
         spaceId: 'space-1',
-        serverUrl: 'https://was.example',
+        baseUrl: 'https://was.example',
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never
       },

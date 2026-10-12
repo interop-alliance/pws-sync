@@ -156,7 +156,7 @@ const controller = createSyncController({
   port: {
     wasClient,
     spaceId,
-    serverUrl,
+    baseUrl,
     collections: [{ key: 'contacts', id: 'contacts' }],
     rxCollection: key => database.collections[key]
   },

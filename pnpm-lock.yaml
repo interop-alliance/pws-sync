@@ -55,8 +55,8 @@ importers:
         specifier: ^6.1.3
         version: 6.1.3
       rxdb:
-        specifier: ^17.4.0
-        version: 17.5.0(rxjs@7.8.2)
+        specifier: ^17.6.0
+        version: 17.6.0(rxjs@7.8.2)(typescript@6.0.3)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -91,6 +91,9 @@ packages:
   '@babel/runtime@7.29.7':
     resolution: {integrity: sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw==}
     engines: {node: '>=6.9.0'}
+
+  '@babel/runtime@8.0.5':
+    resolution: {integrity: sha512-7NK+Lz3spQ52XsUGTxIEVU4jYN2/dIaX8sTxRFAUtYmttYZnVh3aehiihv+/Gb7+duMNHl2OrFcBQRyOHScxpg==}
 
   '@babel/types@7.29.8':
     resolution: {integrity: sha512-Vj1jF3cPfxg7OAfoI7QnVKLoILlm2JF9pnVHrX8qx7AHMiYWT+NDAA7jChlNgRS4WTLc/fD1lXLmPixluj+3Gg==}
@@ -425,8 +428,16 @@ packages:
     resolution: {integrity: sha512-9I2Zn6+NJLfaGoz9jN3lpwDgAYvfGeNYdbAIjJOqzs4Tpc+VU3Jqq4IofSUBKajiDS8k9fZIg18/z13mpk1bsA==}
     engines: {node: '>=8'}
 
+  '@noble/ciphers@2.1.1':
+    resolution: {integrity: sha512-bysYuiVfhxNJuldNXlFEitTVdNnYUc+XNJZd7Qm2a5j1vZHgY+fazadNFWFaMK/2vye0JVlxV3gHmC0WDfAOQw==}
+    engines: {node: '>= 20.19.0'}
+
   '@noble/ciphers@2.4.0':
     resolution: {integrity: sha512-AnjFn0Jv92laAkvMrghlFZq4qQCIN/4DxFV/eooqtC2YTjB7kBeLMS2T9KJX4Dn+ZVXLOwK0lSgqDtx9gvxtiw==}
+    engines: {node: '>= 20.19.0'}
+
+  '@noble/curves@2.0.1':
+    resolution: {integrity: sha512-vs1Az2OOTBiP4q0pwjW5aF0xp9n4MxVrmkFBxc6EKZc6ddYx5gaZiAsZoq0uRRXWbi3AT/sBqn05eRPtn1JCPw==}
     engines: {node: '>= 20.19.0'}
 
   '@noble/curves@2.4.0':
@@ -435,6 +446,10 @@ packages:
 
   '@noble/ed25519@3.2.0':
     resolution: {integrity: sha512-criDgRlnUA09hchYrTy/JUWPIEap5rZxQe6wDWzRx51oWWpDRcUpuNzlgPxDJaOK6AsW9c0wKcj3rKRv6t+bPQ==}
+
+  '@noble/hashes@2.0.1':
+    resolution: {integrity: sha512-XlOlEbQcE9fmuXxrVTXCTlG2nlRXa9Rj3rr5Ue/+tX+nmkgbX720YHh0VR3hBF9xDvwnb8D2shVGOwNx+ulArw==}
+    engines: {node: '>= 20.19.0'}
 
   '@noble/hashes@2.4.0':
     resolution: {integrity: sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==}
@@ -550,8 +565,17 @@ packages:
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
+  '@scure/base@2.0.0':
+    resolution: {integrity: sha512-3E1kpuZginKkek01ovG8krQ0Z44E3DHPjc5S2rjJw9lZn3KSQOs8S7wqikF/AH7iRanHypj85uGyxk0XAyC37w==}
+
   '@scure/base@2.4.0':
     resolution: {integrity: sha512-thZ1TuJwFwBblOhgsjDKvvGirBxNp+wSvY/DR6tJBJOTDhdAAcHJ8Vbr2eFnqaxeca4+t0i9KBf+uHYGWwZORg==}
+
+  '@scure/bip32@2.0.1':
+    resolution: {integrity: sha512-4Md1NI5BzoVP+bhyJaY3K6yMesEFzNS1sE/cP+9nuvE7p/b0kx9XbpDHHFl8dHtufcbdHRUUQdRqLIPHN/s7yA==}
+
+  '@scure/bip39@2.0.1':
+    resolution: {integrity: sha512-PsxdFj/d2AcJcZDX1FXN3dDgitDDTmwf78rKZq1a6c1P1Nan1X/Sxc7667zU3U+AN60g7SxxP0YCVw2H/hBycg==}
 
   '@stablelib/aead@2.0.0':
     resolution: {integrity: sha512-U/RMANRxbT/ahIpYsPSiFwDFNjADHdnCFfmo09MO1ai2XmerPAOPtMl0qmX7XVvygnACC6ijKDyHBoT2rGyElg==}
@@ -1121,12 +1145,12 @@ packages:
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
-  graphql-ws@6.2.1:
-    resolution: {integrity: sha512-NMbPNeTwXpUOxmczdMtzEnynLNbbR267E9hRcJ81SSbQeIvZup3cMjbD1ZT3jpS2xkpxooisitvO7LZNOyz17Q==}
+  graphql-ws@6.3.0:
+    resolution: {integrity: sha512-qBAXPtFjWHF3QypDyNcBp8Rycd+rmofxUSJsu3bGI9QMMq7pImKBSLSg9hZ2ojIMbJ54T/LPjKBIeOUoJbNBnQ==}
     engines: {node: '>=20'}
     peerDependencies:
       '@fastify/websocket': ^10 || ^11
-      crossws: ~0.3
+      crossws: ~0.3 || ~0.4
       graphql: ^15.10.1 || ^16 || ^17
       ws: ^8
     peerDependenciesMeta:
@@ -1231,8 +1255,8 @@ packages:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
     engines: {node: '>=10'}
 
-  js-base64@3.9.2:
-    resolution: {integrity: sha512-6zayE8QlUdiweYI6cETD/XBSqFcoCUlufn/29PJR99r82x1yDnIprRca0YvAYpAW+ez0GuQkVBC6xG5QkD7OjA==}
+  js-base64@3.9.4:
+    resolution: {integrity: sha512-PtOMXpEGuP0RRiRXsjzHzl44dMHxSu2CPvAhinupR1tBa88me+1DPqsobl7eupn5UukjLkln1ZnAOAOXOrYG0Q==}
 
   js-tokens@10.0.0:
     resolution: {integrity: sha512-lM/UBzQmfJRo9ABXbPWemivdCW8V2G8FHaHdypQaIy523snUjog0W71ayWXTjiR+ixeMyVHN2XcpnTd/liPg/Q==}
@@ -1447,6 +1471,17 @@ packages:
 
   neo-async@2.6.2:
     resolution: {integrity: sha512-Yd3UES5mWCSqR+qNT93S3UoYUkqAZ9lLg8a7g9rimsWmYGK8cVToA4/sF3RrshdyV3sAGMXVUmpMYOw+dLpOuw==}
+
+  nostr-tools@2.25.2:
+    resolution: {integrity: sha512-7JAx+brEPmqGz1yzaK9MOxvis/Nl1B38j9hVsBSRDMRmxk5XSc0+5LlPEYbzeiUyk41RURBDcfuMzmaT754HAg==}
+    peerDependencies:
+      typescript: '>=5.0.0'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
+  nostr-wasm@0.1.0:
+    resolution: {integrity: sha512-78BTryCLcLYv96ONU8Ws3Q1JzjlAt+43pWQhIl86xZmWeegYCNLPml7yQ+gG3vR6V5h4XGj+TxO+SS5dsThQIA==}
 
   oblivious-set@2.0.0:
     resolution: {integrity: sha512-QOUH5Xrsced9fKXaQTjWoDGKeS/Or7E2jB0FN63N4mkAO4qJdB7WR7e6qWAOHM5nk25FJ8TGjhP7DH4l6vFVLg==}
@@ -1671,8 +1706,8 @@ packages:
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
 
-  rxdb@17.5.0:
-    resolution: {integrity: sha512-BRo5wYL8NHmQ3RwboINkq6czYzhHGIgRwXsQhYlq2rbGIRSGUbJ9jIW/DIo3tdMvcK4aN3UnkevdXw3CzW6KFA==}
+  rxdb@17.6.0:
+    resolution: {integrity: sha512-VmnCk/IXQ5KoUXw1ZsnsFt/DJI6DCCepE7SkHk44kybyMXczBawPuEAaShLtVQj+xrc9hVEyHOxzgPgIrnjgqQ==}
     engines: {node: '>=20'}
     peerDependencies:
       '@angular/core': '*'
@@ -1705,8 +1740,8 @@ packages:
   safe-buffer@5.2.1:
     resolution: {integrity: sha512-rp3So07KcdmmKbGvgaNxQSJr7bGVSVk5S9Eq1F+ppbRo70+YeaDxkw5Dd8NPN+GD6bjnYm2VuPuCXmpuYvmCXQ==}
 
-  safe-regex2@5.1.1:
-    resolution: {integrity: sha512-mOSBvHGDZMuIEZMdOz/aCEYDCv0E7nfcNsIhUF+/P+xC7Hyf3FkvymqgPbg9D1EdSGu+uKbJgy09K/RKKc7kJA==}
+  safe-regex2@5.1.2:
+    resolution: {integrity: sha512-tAtCGFPPP02VroDVzp4daGi6bC7jWG+41D47GKf18FeH/ubvKQHT9VmhAkvtjNOmJwqtApzWeUpEhkyEYULvmw==}
     hasBin: true
 
   safe-stable-stringify@2.5.0:
@@ -2007,8 +2042,8 @@ packages:
   wrappy@1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
 
-  ws@8.21.3:
-    resolution: {integrity: sha512-201TZ/kPWxoPr/OKWjquZR1SWKXcvxdH+e1xrx89b3YbmzLMFCLfnaG1HFIgWzJOEWZ7MvpK++odZufgYR50Rw==}
+  ws@8.22.0:
+    resolution: {integrity: sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
       bufferutil: ^4.0.1
@@ -2038,8 +2073,8 @@ packages:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
 
-  z-schema@12.4.1:
-    resolution: {integrity: sha512-BkI5D+2t1GCC40dHAQEpBCy6CRbroWRypReYpk9q/p2vDCbbGm4wI126KiePnSv9ab7QMv6WMPt9kKm1+9XrkQ==}
+  z-schema@12.4.6:
+    resolution: {integrity: sha512-jFh7aWwpGeyBAHFcwVPQ1GtS4d1AwhnTmSBtc/m/WtlA5XqCLlzAXu7rIZhKFXQ/iDfg8vEDQxmfWPh0OEJLAw==}
     engines: {node: '>=22.0.0'}
     hasBin: true
 
@@ -2054,6 +2089,8 @@ snapshots:
       '@babel/types': 7.29.8
 
   '@babel/runtime@7.29.7': {}
+
+  '@babel/runtime@8.0.5': {}
 
   '@babel/types@7.29.8':
     dependencies:
@@ -2493,13 +2530,21 @@ snapshots:
 
   '@lukeed/ms@2.0.2': {}
 
+  '@noble/ciphers@2.1.1': {}
+
   '@noble/ciphers@2.4.0': {}
+
+  '@noble/curves@2.0.1':
+    dependencies:
+      '@noble/hashes': 2.0.1
 
   '@noble/curves@2.4.0':
     dependencies:
       '@noble/hashes': 2.4.0
 
   '@noble/ed25519@3.2.0': {}
+
+  '@noble/hashes@2.0.1': {}
 
   '@noble/hashes@2.4.0': {}
 
@@ -2558,7 +2603,20 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.1': {}
 
+  '@scure/base@2.0.0': {}
+
   '@scure/base@2.4.0': {}
+
+  '@scure/bip32@2.0.1':
+    dependencies:
+      '@noble/curves': 2.0.1
+      '@noble/hashes': 2.0.1
+      '@scure/base': 2.0.0
+
+  '@scure/bip39@2.0.1':
+    dependencies:
+      '@noble/hashes': 2.0.1
+      '@scure/base': 2.0.0
 
   '@stablelib/aead@2.0.0': {}
 
@@ -3108,7 +3166,7 @@ snapshots:
     dependencies:
       fast-deep-equal: 3.1.3
       fast-querystring: 1.1.2
-      safe-regex2: 5.1.1
+      safe-regex2: 5.1.2
 
   find-up@5.0.0:
     dependencies:
@@ -3171,11 +3229,11 @@ snapshots:
 
   graceful-fs@4.2.11: {}
 
-  graphql-ws@6.2.1(graphql@17.0.2)(ws@8.21.3):
+  graphql-ws@6.3.0(graphql@17.0.2)(ws@8.22.0):
     dependencies:
       graphql: 17.0.2
     optionalDependencies:
-      ws: 8.21.3
+      ws: 8.22.0
 
   graphql@17.0.2: {}
 
@@ -3259,7 +3317,7 @@ snapshots:
 
   joycon@3.1.1: {}
 
-  js-base64@3.9.2: {}
+  js-base64@3.9.4: {}
 
   js-tokens@10.0.0: {}
 
@@ -3426,6 +3484,20 @@ snapshots:
   natural-compare@1.4.0: {}
 
   neo-async@2.6.2: {}
+
+  nostr-tools@2.25.2(typescript@6.0.3):
+    dependencies:
+      '@noble/ciphers': 2.1.1
+      '@noble/curves': 2.0.1
+      '@noble/hashes': 2.0.1
+      '@scure/base': 2.0.0
+      '@scure/bip32': 2.0.1
+      '@scure/bip39': 2.0.1
+      nostr-wasm: 0.1.0
+    optionalDependencies:
+      typescript: 6.0.3
+
+  nostr-wasm@0.1.0: {}
 
   oblivious-set@2.0.0: {}
 
@@ -3658,9 +3730,9 @@ snapshots:
       '@rolldown/binding-win32-arm64-msvc': 1.2.12
       '@rolldown/binding-win32-x64-msvc': 1.2.12
 
-  rxdb@17.5.0(rxjs@7.8.2):
+  rxdb@17.6.0(rxjs@7.8.2)(typescript@6.0.3):
     dependencies:
-      '@babel/runtime': 7.29.7
+      '@babel/runtime': 8.0.5
       '@types/simple-peer': 9.11.9
       '@types/ws': 8.18.1
       ajv: 8.20.0
@@ -3674,21 +3746,23 @@ snapshots:
       event-reduce-js: 6.0.0
       get-graphql-from-jsonschema: 8.1.0
       graphql: 17.0.2
-      graphql-ws: 6.2.1(graphql@17.0.2)(ws@8.21.3)
+      graphql-ws: 6.3.0(graphql@17.0.2)(ws@8.22.0)
       is-my-json-valid: 2.20.6
-      js-base64: 3.9.2
+      js-base64: 3.9.4
       jsonschema-key-compression: 1.7.0
       mingo: 7.2.4
+      nostr-tools: 2.25.2(typescript@6.0.3)
       oblivious-set: 2.0.0
       rxjs: 7.8.2
       simple-peer: 9.11.1
-      ws: 8.21.3
-      z-schema: 12.4.1
+      ws: 8.22.0
+      z-schema: 12.4.6
     transitivePeerDependencies:
       - '@fastify/websocket'
       - bufferutil
       - crossws
       - supports-color
+      - typescript
       - utf-8-validate
 
   rxjs@7.8.2:
@@ -3697,7 +3771,7 @@ snapshots:
 
   safe-buffer@5.2.1: {}
 
-  safe-regex2@5.1.1:
+  safe-regex2@5.1.2:
     dependencies:
       ret: 0.5.0
 
@@ -3971,7 +4045,7 @@ snapshots:
 
   wrappy@1.0.2: {}
 
-  ws@8.21.3: {}
+  ws@8.22.0: {}
 
   x25519-key-agreement-2020-context@1.0.0: {}
 
@@ -3983,10 +4057,10 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  z-schema@12.4.1:
+  z-schema@12.4.6:
     dependencies:
       punycode: 2.3.1
-      safe-regex2: 5.1.1
+      safe-regex2: 5.1.2
       validator: 13.15.35
     optionalDependencies:
       commander: 15.0.0
