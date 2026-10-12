@@ -1,6 +1,6 @@
 # @interop/was-sync Changelog
 
-## 0.10.1 - TBD
+## 0.10.1 - 2026-10-12
 
 ### Changed
 
