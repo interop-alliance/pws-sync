@@ -1,5 +1,11 @@
 # @interop/was-sync Changelog
 
+## 0.10.1 - TBD
+
+### Changed
+
+- Update to latest data-integrity-core, jsigs, and was-client.
+
 ## 0.10.0 - 2026-10-12
 
 ### Changed
