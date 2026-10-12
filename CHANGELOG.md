@@ -1,5 +1,17 @@
 # @interop/was-sync Changelog
 
+## 0.9.3 - TBD
+
+### Changed
+
+- Verified against `was-teaching-server` 0.42.1+, whose `/meta` `ETag` covers
+  the content record too and is present from a Resource's first write. The feed
+  echo of a content-only write now carries a `metaEtag`, so the first metadata
+  write goes out as `If-Match` on it rather than `If-None-Match: *`; the server
+  accepts it. A tombstone carries one as well, which the tombstone guard already
+  disregards. No driver change; the integration suite and the docs now state the
+  new shape.
+
 ## 0.9.2 - 2026-10-12
 
 ### Changed

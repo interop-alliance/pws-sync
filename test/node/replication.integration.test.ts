@@ -901,9 +901,10 @@ describe('WAS replication (RxDB + live was-teaching-server)', () => {
 
   it('pushes a custom edit made after the /meta ack and before its echo with If-Match, and no 412', async () => {
     // Between this replica's own `/meta` write and its echo the row holds
-    // what the ack brought: `metaEtag`, and from a body-answering server the
-    // `meta` stamp. The next metadata edit must route as an update on that
-    // validator, not as a create the server would refuse.
+    // what the ack brought: the `/meta` object's new `metaEtag`, and from a
+    // body-answering server the `meta` stamp. The next metadata edit must
+    // route as an update on that validator, not on the one the feed echo of
+    // the content write left behind, which the server would refuse.
     let conflicts = 0
     const collection = await openCollection({
       onConflict: () => (conflicts += 1)
@@ -932,12 +933,15 @@ describe('WAS replication (RxDB + live was-teaching-server)', () => {
         ),
       settledReSync(replication)
     )
+    // The `/meta` object's validator covers both records, so the feed echo of
+    // a content-only write already carries one; the `meta` stamp arrives only
+    // with the first metadata write.
     const stamped = await localRow(collection, 'cid-pre-echo')
     expect('meta' in stamped!).toBe(false)
-    expect('metaEtag' in stamped!).toBe(false)
+    expect(stamped!.metaEtag).toBeDefined()
 
-    // The first `/meta` write. No pull is nudged from here on, so its echo
-    // stays on the server.
+    // The first `/meta` write, conditioned on the validator the echo brought.
+    // No pull is nudged from here on, so its echo stays on the server.
     await (await collection.findOne('cid-pre-echo').exec())!.incrementalPatch({
       custom: { name: 'First', tags: {} },
       updatedAt: '000000000002'
@@ -966,7 +970,7 @@ describe('WAS replication (RxDB + live was-teaching-server)', () => {
     await replication.awaitInSync()
 
     expect(metaWrites).toEqual([
-      { ifNoneMatch: true },
+      { ifMatch: stamped!.metaEtag },
       { ifMatch: acked!.metaEtag }
     ])
     expect(conflicts).toBe(0)
@@ -1426,13 +1430,15 @@ describe('WAS replication (RxDB + live was-teaching-server)', () => {
       async () => (await collection.findOne('cid-feed-tomb').exec()) === null,
       settledReSync(replication)
     )
-    // The server's tombstone carries no `/meta` stamp or validator.
+    // The server's tombstone carries no `/meta` stamp. It still carries a
+    // `metaEtag` (the `/meta` validator covers the content record, and the
+    // tombstone keeps one), which the handler's tombstone guard disregards.
     const tombstone = (await observer.query({ limit: 100 })).documents.find(
       doc => doc.id === 'cid-feed-tomb'
     )
     expect(tombstone?._deleted).toBe(true)
     expect('meta' in tombstone!).toBe(false)
-    expect('metaEtag' in tombstone!).toBe(false)
+    expect(tombstone!.metaEtag).toBeDefined()
 
     await collection.insert({
       id: 'cid-feed-tomb',

@@ -18,7 +18,7 @@
  *   with no `etag` re-reads the primary first and conditions the delete on the
  *   re-read validator.
  * - metadata changed -> `PUT /:id/meta` (`If-Match: <metaEtag>`, or
- *   `If-None-Match: *` when the resource has no metadata yet); a metadata
+ *   `If-None-Match: *` when the assumed primary holds no `/meta` state); a metadata
  *   CLEAR (the new state carries no `custom`) writes the cleared state rather
  *   than being skipped.
  *
@@ -90,10 +90,14 @@
  * that could overwrite a concurrent re-create.
  *
  * The `/meta` half's create-or-update choice otherwise keys on the assumed
- * primary carrying `meta` or `metaEtag`: either says the `/meta` record exists
- * (a `204` ack brings the validator without the stamp, and a feed may carry the
- * stamp without the validator). An update sends `If-Match: <metaEtag>` when
- * the validator is held and goes unconditional when it is not.
+ * primary carrying `meta` or `metaEtag`: either says the server holds `/meta`
+ * state to condition on (a `204` ack brings the validator without the stamp,
+ * and a feed may carry the stamp without the validator). An update sends
+ * `If-Match: <metaEtag>` when the validator is held and goes unconditional
+ * when it is not. The `/meta` object's validator covers the content record
+ * too, so a server that emits it carries one from the resource's first write,
+ * and the first metadata write then goes out as an update on it; the server
+ * evaluates that `If-Match` against the same composite and accepts it.
  *
  * A delete's `404` is read as the already-absent outcome rather than an error.
  * A spec-conformant server answers `204` for an authorized delete of a resource

@@ -148,10 +148,11 @@ numbered so items and reviews can cite them.
    re-creating and re-deleting in between), which the changes feed already
    surfaces as later entries for the next pull to reconcile. The `/meta` half of
    a resurrection is a create-if-absent for the same reason: a tombstone entry
-   carries no `custom`, no `meta`, and no `metaEtag`, so the handler compares
-   the local `custom` against nothing and sends `If-None-Match: *`, and against
-   the teaching server, whose tombstone drops the metadata object and retires
-   its validator, both halves land in one push cycle. A server that kept the
+   carries no `custom` and no `meta` (its `metaEtag`, when the server keeps one,
+   is retired with the content validator), so the handler compares the local
+   `custom` against nothing and sends `If-None-Match: *`, and against the
+   teaching server, whose tombstone drops the metadata object and retires its
+   validator, both halves land in one push cycle. A server that kept the
    metadata object through a tombstone would answer that create with a `412`,
    which costs one extra cycle (the re-read, a metadata conflict entry, a
    resolution) rather than failing the row. The integration suite pins both the
@@ -165,6 +166,12 @@ numbered so items and reviews can cite them.
    create. Keying on `meta` alone would send a create for the state after this
    replica's own `/meta` write and before its echo, which holds `metaEtag` and
    no `meta`. Keying on `metaEtag` alone would misroute the hidden-`ETag` state.
+   The `/meta` validator covers the content record as well as the `/meta`
+   record, so a server that emits it (the teaching server since 0.42.1) carries
+   one on the feed from the resource's first write. The first metadata write
+   after a content write therefore goes out as `If-Match` on that validator
+   rather than `If-None-Match: *`, and the server accepts it, since it evaluates
+   the precondition against the same composite.
 5. **Cross-package errors match by `err.name`, never `instanceof`.** Every error
    this driver classifies is was-client's, raised inside a seam the app injects,
    and that seam can resolve to a second copy of was-client. The predicates come
