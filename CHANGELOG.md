@@ -29,6 +29,11 @@
 
 - The controller resolves each collection's RxDB handle once per start.
 - Removed the empty `src/declarations.d.ts`.
+- Docs: ARCHITECTURE.md invariant 20 records that a controller is bound to one
+  port and one server, that a consumer fails over by constructing a fresh
+  controller whose refused checkpoint re-pulls the Collection from the
+  beginning, and what the driver assumes of the local rows on the other replica
+  (WS-28).
 - The feed-backed conflict re-read's per-batch memo records the checkpoint its
   last walk stopped at (`PrimaryReadCache.checkpoint`), and a row the memo
   misses resumes the walk from there instead of paging from the feed's origin

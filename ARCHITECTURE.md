@@ -384,12 +384,39 @@ numbered so items and reviews can cite them.
     both halves: the row lingers locally while absent on the server, and returns
     only when edited. Clearing every row the restarted feed does not list was
     rejected. The same restart fires when another server issued the checkpoint,
-    the failover case WS-28 covers, and the driver cannot tell the two cases
-    apart. A clear would then delete the replica's rows on a failover to a
-    server that is merely behind. A consumer that deletes and re-creates a
-    Collection, or learns that one was, forgets the replica together with its
-    `rx-replication-meta-*` instance. That is the same forget invariant 7 (the
-    replica schema is stored state) describes for a schema change.
+    the failover case invariant 20 (a controller is bound to one server) covers,
+    and the driver cannot tell the two cases apart. A clear would then delete
+    the replica's rows on a failover to a server that is merely behind. A
+    consumer that deletes and re-creates a Collection, or learns that one was,
+    forgets the replica together with its `rx-replication-meta-*` instance. That
+    is the same forget invariant 7 (the replica schema is stored state)
+    describes for a schema change.
+20. **A controller is bound to one port and one server.** `createSyncController`
+    takes one `port` carrying one `WasClient`, one Space, and one capability
+    set, and every replication it registers runs against that server for the
+    life of the instance. The spec settles that a client replicates against one
+    server at a time and that every capability is host-bound, so a second
+    replica of a Collection is reached with a new port and a new grant. A
+    consumer fails over by stopping the controller and constructing a fresh one
+    against the other replica (invariant 9, `stop()` is terminal). The local
+    rows stay. The stored checkpoint was issued by the first server, so the
+    second refuses it and the pull restarts the Collection from the beginning
+    (invariant 19, a refused checkpoint restarts the feed and clears nothing).
+    What the rows mean on the other server is an assumption the driver makes
+    rather than checks: under the stamp model a Resource is byte-identical on
+    every replica, its `ETag` and write stamp included, so the `etag` and
+    `metaEtag` a row carries from the first server condition correctly on the
+    second, and a pending local edit goes out with `If-Match` on a validator the
+    second server recognizes. The hazard is a replica behind its source. A write
+    against it draws a `412` whose re-read primary is older than the assumed
+    one, the second server not yet holding the revision the first acked. When
+    only `custom` differs, rule 2 of the default resolver adopts the re-read
+    `custom` as the server-committed state, which here is the older one. The
+    driver does not detect that case: the resolver compares bodies, not stamps,
+    and the push path treats every re-read primary as current. Failing over only
+    to a replica that has caught up with the one the consumer left is therefore
+    the consumer's sequencing concern. Whether the resolver should instead
+    compare the two primaries' stamps and prefer the assumed one is WS-29.
 
 ## Ownership heuristics
 

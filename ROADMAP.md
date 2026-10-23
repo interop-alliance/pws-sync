@@ -1,6 +1,6 @@
 # WAS Sync Roadmap (open items)
 
-nextAvailableId: 29
+nextAvailableId: 30
 
 Status as of 2026-09-05. Uses the formalized item structure shared across the
 `@interop/*` repos.
@@ -47,37 +47,32 @@ changes in code, but the spec sentence the comparison rests on is being
 rewritten, so the reasoning needs to be on record here rather than inferred from
 `@interop/social-core`.
 
-### WS-28: State what the driver assumes when a consumer fails over to another replica
+### WS-29: Decide whether the default resolver detects a lagging replica by stamp comparison
 
 - status: todo
 - priority: low
-- labels: docs, controller, was-96
-- blocked-by: WS-23
+- labels: conflict, was-96
 - acceptance:
-  - [ ] ARCHITECTURE.md records that a controller is bound to one port and one
-        server, that a consumer fails over by constructing a fresh controller
-        against the other replica, and that the refused checkpoint then re-pulls
-        the Collection from the beginning
-  - [ ] It records that a Resource's stamp and `ETag` are identical on every
-        replica under WAS-96, so the validators the replica holds condition
-        correctly on the other server, and that a lagging replica answers a
-        `412` whose re-read primary is older than the assumed one, which the
-        default resolver's rule 2 adopts as remote
-  - [ ] Whether the resolver should prefer the assumed primary over an older
-        re-read primary is decided or filed as its own item
+  - [ ] Either the default resolver compares the assumed and re-read primaries'
+        write stamps when only `custom` differs and re-asserts the local state
+        when the re-read one is older, with a test driving the `412` from a
+        primary behind the assumed one, or ARCHITECTURE.md invariant 20 (a
+        controller is bound to one server) records why the comparison was
+        rejected and the consumer sequencing rule stays the answer
 
-Context: WAS-96 settles that a client replicates against one server at a time
-(its alternative 7) and that every capability is host-bound (its section 5.12),
-so a wallet reaches a second replica with a new port and a new grant. The
-driver's controller already takes one port and the 0.7.0 checkpoint restart
-covers the re-pull. What is not written down is what the local rows mean on the
-other server. Under the stamp model Resources are byte-identical across
-replicas, `ETag` included, so the `If-Match` a row carries from server A holds
-on server B. The one hazard is a replica behind its source: a write against it
-draws a `412` whose re-read primary predates the assumed one, and rule 2 of the
-default resolver would then adopt the older `custom`. That is a consumer
-sequencing concern more than a driver defect, but the driver's assumption should
-be stated.
+Context: After a failover to a replica behind the one the consumer left, a push
+can draw a `412` whose re-read primary is an older revision than the assumed
+primary this replica already holds. Rule 2 of the default resolver treats a
+`custom`-only difference as a metadata edit committed on the server and adopts
+the re-read `custom`, which in this case walks the row backwards. Under the
+stamp model the write stamp `(updatedAt, updatedAtCounter, originId)` is a total
+order shared by every replica, and both primaries carry one, so the resolver
+could tell an older re-read primary from a newer one. The trade-off is that
+re-asserting the local state then writes it onto the lagging replica with
+`If-Match` on the older validator, which forks the two servers' histories for
+their own replication to settle, where today the consumer is expected to fail
+over only to a replica that has caught up. Invariant 20 records the current
+assumption. discovered-from: WS-28.
 
 ### WS-20: A foreign state pulled during this replica's own push window is dropped
 

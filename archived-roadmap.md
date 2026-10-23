@@ -1234,3 +1234,36 @@ a batch of k conflicting rows can cost on the order of H_k sequential full scans
 rather than one. That is slower than k concurrent unmemoized walks. The existing
 "walks again for an id the memo never saw" test demonstrates the re-walk, and
 both "one walk" tests place every id on one page.
+
+### WS-28: State what the driver assumes when a consumer fails over to another replica
+
+- status: done
+- done: 2026-10-23
+- priority: low
+- labels: docs, controller, was-96
+- blocked-by: WS-23
+- acceptance:
+  - [x] ARCHITECTURE.md records that a controller is bound to one port and one
+        server, that a consumer fails over by constructing a fresh controller
+        against the other replica, and that the refused checkpoint then re-pulls
+        the Collection from the beginning
+  - [x] It records that a Resource's stamp and `ETag` are identical on every
+        replica under WAS-96, so the validators the replica holds condition
+        correctly on the other server, and that a lagging replica answers a
+        `412` whose re-read primary is older than the assumed one, which the
+        default resolver's rule 2 adopts as remote
+  - [x] Whether the resolver should prefer the assumed primary over an older
+        re-read primary is decided or filed as its own item (filed as WS-29)
+
+Context: WAS-96 settles that a client replicates against one server at a time
+(its alternative 7) and that every capability is host-bound (its section 5.12),
+so a wallet reaches a second replica with a new port and a new grant. The
+driver's controller already takes one port and the 0.7.0 checkpoint restart
+covers the re-pull. What is not written down is what the local rows mean on the
+other server. Under the stamp model Resources are byte-identical across
+replicas, `ETag` included, so the `If-Match` a row carries from server A holds
+on server B. The one hazard is a replica behind its source: a write against it
+draws a `412` whose re-read primary predates the assumed one, and rule 2 of the
+default resolver would then adopt the older `custom`. That is a consumer
+sequencing concern more than a driver defect, but the driver's assumption should
+be stated.
