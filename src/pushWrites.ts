@@ -15,8 +15,8 @@
  *   the assumed primary last reported) or, on create, `PUT /:id`
  *   (`If-None-Match: *`); a delete -> `DELETE /:id` (`If-Match: <etag>`), or
  *   no write at all when there is no assumed primary. A live assumed primary
- *   with no `etag` re-reads the primary first and conditions the delete on the
- *   re-read validator.
+ *   with no `etag` re-reads the primary first and conditions the write or the
+ *   delete on the re-read validator.
  * - metadata changed -> `PUT /:id/meta` (`If-Match: <metaEtag>`, or
  *   `If-None-Match: *` when the assumed primary holds no `/meta` state); a metadata
  *   CLEAR (the new state carries no `custom`) writes the cleared state rather
@@ -57,21 +57,24 @@
  * none for the record), body equality is all there is and the retry keeps its
  * original rule.
  *
- * A delete can also find a live assumed primary that holds no validator at all.
- * This happens when a row is inserted and then removed locally while its create
- * `PUT` is still in flight. RxDB records the pushed live state as the assumed
- * primary. The ack write-back then finds no live row to patch, so the create's
- * `etag` never reaches the assumed primary. A header-less `DELETE` is unsafe
- * here. Ids are content-addressed, so another replica may hold a live copy
- * under the same id, and the delete would tombstone it. So the delete first
- * re-reads the primary and conditions on its validator, under the same
- * own-drift rule the benign retry uses. A primary that is absent (or a
- * tombstone) needs no delete, and the row is reported accepted with no ack. A
+ * A write can also find a live assumed primary that holds no validator at all.
+ * This happens when a row is edited or removed locally while its create `PUT`
+ * is still in flight, or when the create's ack write-back failed. RxDB
+ * records the pushed live state as the assumed primary. The ack write-back
+ * then finds no live row to patch (or could not patch it), so the create's
+ * `etag` never reaches the assumed primary. A header-less `PUT` or `DELETE` is
+ * unsafe here. Ids are content-addressed, so another replica may hold a live
+ * copy under the same id, and the write would overwrite it or the delete
+ * would tombstone it. So the write first re-reads the primary and conditions
+ * on its validator, under the same own-drift rule the benign retry uses. A
  * primary whose body differs, or that carries another writer's label, is
- * reported as a conflict and no delete is sent. A `412` on the conditioned
- * delete is a real conflict. Only a server that hides its `ETag` leaves the
- * re-read with no validator, and there the delete goes unconditional, as every
- * conditional write there already does.
+ * reported as a conflict and nothing is sent. For a delete, a primary that is
+ * absent (or a tombstone) needs no delete, and the row is reported accepted
+ * with no ack; for a content update, an absent primary is a remote delete
+ * racing the local edit, and is reported as the tombstone conflict entry. A
+ * `412` on the conditioned write is a real conflict. Only a server that hides
+ * its `ETag` leaves the re-read with no validator, and there the write goes
+ * unconditional, as every conditional write there already does.
  *
  * A `412` whose re-read resolves `null` is reported as a tombstone conflict
  * entry carrying the local `updatedAt` and no other stamp member, no `etag`,
@@ -98,6 +101,17 @@
  * too, so a server that emits it carries one from the resource's first write,
  * and the first metadata write then goes out as an update on it; the server
  * evaluates that `If-Match` against the same composite and accepts it.
+ *
+ * A `/meta` write's `404` is corroborated by a re-read of the primary and
+ * then reported as a conflict entry whatever the re-read finds: the tombstone
+ * entry for an absent or deleted primary (an ordinary race with a remote
+ * delete), the live primary otherwise (a server that holds no `/meta`
+ * document for a live resource, or a masked refusal scoped to `/meta`). The
+ * second case is logged at `warn`. Neither is rethrown: a rethrow would reject
+ * the whole batch and RxDB would re-send it unchanged forever, so no other row
+ * in the batch could reach the server, while a conflict entry hands the row to
+ * the conflict handler and lets its siblings land. Only a re-read that is
+ * itself denied rethrows, as its own auth error.
  *
  * A delete's `404` is read as the already-absent outcome rather than an error.
  * A spec-conformant server answers `204` for an authorized delete of a resource
@@ -137,8 +151,8 @@
  * one. The server's declare-or-clear rule means a content write without it
  * clears the stored label, so a replication run without a `writerId`
  * attributes nothing rather than leaving a previous writer's label in place.
- * The benign-412 delete re-issue and the validator-less delete declare it
- * too.
+ * The benign-412 delete re-issue and the validator-less write and delete
+ * declare it too.
  */
 import {
   isSyncAuthError,
@@ -373,6 +387,32 @@ async function pushRow({
     )
   }
 
+  // Re-reads the primary for a write that must condition on the re-read
+  // validator (the benign retry and the header's validator-less note), and
+  // classifies it: `absent` (no primary, or a tombstone), `foreign` (a body
+  // that differs, or another writer's label), or `own` with the precondition
+  // to spread into the write (none when the server hides its `ETag`).
+  const classifyReRead = async (): Promise<
+    | { kind: 'absent'; primary: PrimaryState | null }
+    | { kind: 'foreign'; primary: PrimaryState }
+    | { kind: 'own'; primary: PrimaryState; precondition: { ifMatch?: string } }
+  > => {
+    const primary = await readPrimary()
+    if (primary === null || primary.deleted === true) {
+      return { kind: 'absent', primary }
+    }
+    if (!isOwnDrift(primary)) {
+      return { kind: 'foreign', primary }
+    }
+    return {
+      kind: 'own',
+      primary,
+      precondition: {
+        ...(primary.etag !== undefined && { ifMatch: primary.etag })
+      }
+    }
+  }
+
   // Deletes the remote content conditional on the assumed etag (none when the
   // assumed primary is a tombstone), recovering from the one benign `412`. A
   // `412` with no assumed etag, an absent primary, a primary whose body really
@@ -388,19 +428,16 @@ async function pushRow({
       if (!isSyncConflictError(err) || deleteEtag === undefined) {
         throw err
       }
-      const primary = await readPrimary()
-      if (primary === null || !isOwnDrift(primary)) {
+      const reRead = await classifyReRead()
+      if (reRead.kind !== 'own') {
         throw err
       }
       log.debug('Delete refused on a drifted validator; re-issuing it', {
         id,
         assumedEtag,
-        etag: primary.etag
+        etag: reRead.primary.etag
       })
-      return await deleteAbsentAsDone({
-        id,
-        ...(primary.etag !== undefined && { ifMatch: primary.etag })
-      })
+      return await deleteAbsentAsDone({ id, ...reRead.precondition })
     }
   }
 
@@ -424,34 +461,31 @@ async function pushRow({
     conflict: WithDeleted<SyncedDoc> | null
     ack: PushWriteAck | null
   }> => {
-    const primary = await readPrimary()
-    if (primary === null || primary.deleted === true) {
+    const reRead = await classifyReRead()
+    if (reRead.kind === 'absent') {
       log.debug('Delete of a validator-less row; already absent', { id })
       return { conflict: null, ack: null }
     }
-    if (!isOwnDrift(primary)) {
+    if (reRead.kind === 'foreign') {
       log.debug(
         'Delete of a validator-less row; the primary differs, a conflict',
         {
           id,
-          etag: primary.etag
+          etag: reRead.primary.etag
         }
       )
-      return conflictOutcome(primary)
+      return conflictOutcome(reRead.primary)
     }
     log.debug(
       'Delete of a validator-less row; conditioned on the re-read ETag',
       {
         id,
-        etag: primary.etag
+        etag: reRead.primary.etag
       }
     )
     recordAck(
       'content',
-      await deleteAbsentAsDone({
-        id,
-        ...(primary.etag !== undefined && { ifMatch: primary.etag })
-      })
+      await deleteAbsentAsDone({ id, ...reRead.precondition })
     )
     return { conflict: null, ack: hasAck() ? ack : null }
   }
@@ -479,6 +513,37 @@ async function pushRow({
     const contentChanged =
       isCreate || !bodiesEqual(newDocumentState.data, assumedMasterState?.data)
     if (contentChanged) {
+      let precondition: { ifNoneMatch: true } | { ifMatch?: string }
+      if (isCreate) {
+        precondition = { ifNoneMatch: true }
+      } else if (assumedEtag !== undefined) {
+        precondition = { ifMatch: assumedEtag }
+      } else {
+        // A live assumed primary with no validator (the header's
+        // validator-less note): condition on a re-read. An absent primary, a
+        // tombstone, a differing body, or another writer's label is a
+        // conflict and nothing is sent.
+        const reRead = await classifyReRead()
+        if (reRead.kind !== 'own') {
+          log.debug(
+            'Update of a validator-less row; the primary differs, a conflict',
+            {
+              id,
+              etag: reRead.primary?.etag,
+              deleted: reRead.kind === 'absent'
+            }
+          )
+          return conflictOutcome(reRead.primary)
+        }
+        log.debug(
+          'Update of a validator-less row; conditioned on the re-read ETag',
+          {
+            id,
+            etag: reRead.primary.etag
+          }
+        )
+        precondition = reRead.precondition
+      }
       recordAck(
         'content',
         await port.putContent({
@@ -487,9 +552,7 @@ async function pushRow({
           ...(newDocumentState.epoch !== undefined && {
             epoch: newDocumentState.epoch
           }),
-          ...(isCreate
-            ? { ifNoneMatch: true }
-            : assumedEtag !== undefined && { ifMatch: assumedEtag }),
+          ...precondition,
           ...attribution
         })
       )
@@ -542,14 +605,20 @@ async function pushRow({
       // race, and the row is resolved with that tombstone as the conflict
       // entry (the conflict handler reconciles it) instead of rejecting the
       // batch -- which would wedge it in RxDB's retries, or on the auth port
-      // flip the whole session to "access expired".
+      // flip the whole session to "access expired". A feed that answers with
+      // a LIVE primary while the `/meta` write 404s is a server that holds no
+      // `/meta` document for it (or a refusal scoped to `/meta`); the row is
+      // handed to RxDB as a conflict on that primary for the same reason, and
+      // the oddity is logged (the header's `/meta` 404 note).
       if (isMetaNotFound(err)) {
         const primary = await readPrimary()
-        if (primary === null || primary.deleted) {
-          return conflictOutcome(primary)
+        if (primary !== null && primary.deleted !== true) {
+          log.warn(
+            'Metadata write refused as not found while the resource reads live; handing the primary to RxDB as a conflict',
+            { id, etag: primary.etag, err }
+          )
         }
-        // The resource is alive and readable while its `/meta` write 404s:
-        // the write itself was rejected, so the original signal stands.
+        return conflictOutcome(primary)
       }
       throw err
     }
@@ -562,8 +631,12 @@ async function pushRow({
  * Builds the RxDB push handler that fans a batch of local changes out to
  * conditional WAS writes and returns the conflicting rows' primary states.
  *
- * Rows are pushed concurrently; if any non-conflict error is thrown the whole
- * batch rejects (RxDB re-sends it later), matching RxDB's all-or-nothing retry.
+ * Rows are pushed concurrently, and every row settles before the batch is
+ * judged: if any row threw a non-conflict error the whole batch then rejects
+ * with the first such error (RxDB re-sends it later), matching RxDB's
+ * all-or-nothing retry. Waiting for the siblings keeps a write that already
+ * landed from racing the re-sent batch, and lets its ack be written back
+ * first, rather than leaving it in flight behind a rejection.
  *
  * Each accepted row's acks are handed to `onWriteAccepted` (when supplied) as
  * soon as that row's writes settle, so the caller can write the acked state
@@ -601,7 +674,7 @@ export function createPushHandler({
     }>
   ): Promise<WithDeleted<SyncedDoc>[]> {
     const cache: PrimaryReadCache = { byId: new Map(), inFlight: null }
-    const results = await Promise.all(
+    const outcomes = await Promise.allSettled(
       rows.map(async row => {
         const result = await pushRow({
           port,
@@ -613,13 +686,20 @@ export function createPushHandler({
         if (result.ack !== null && onWriteAccepted !== undefined) {
           await onWriteAccepted(result.ack)
         }
-        return result
+        return result.conflict
       })
     )
-    return results
-      .map(result => result.conflict)
-      .filter(
-        (conflict): conflict is WithDeleted<SyncedDoc> => conflict !== null
-      )
+    const failed = outcomes.find(
+      (outcome): outcome is PromiseRejectedResult =>
+        outcome.status === 'rejected'
+    )
+    if (failed !== undefined) {
+      throw failed.reason
+    }
+    return outcomes.flatMap(outcome =>
+      outcome.status === 'fulfilled' && outcome.value !== null
+        ? [outcome.value]
+        : []
+    )
   }
 }

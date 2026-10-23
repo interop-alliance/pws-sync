@@ -135,6 +135,12 @@ function assignDiffering({
  * row's member is removed. A metadata write leaves the label alone, so the
  * `/meta` ack patches none. Everything lands in one write.
  *
+ * The patch is computed twice: once against a read of the row, to skip the
+ * write when nothing differs, and again inside `incrementalModify` against the
+ * revision the write lands on. A local edit that lands between the read and
+ * the write is seen by the second computation, so its stamp is kept rather
+ * than overwritten with the superseded write's.
+ *
  * A failure is logged at `warn` and swallowed: the write itself succeeded, and
  * a missed write-back only means the acked state is adopted from the change
  * feed's echo on a later pull.
@@ -152,64 +158,85 @@ function createAckWriteBack({
   rxCollection: RxCollection<SyncedDoc>
   writerId?: string
 }) {
+  /**
+   * The members of the row that differ from the acked state, by schema
+   * property name, with `undefined` asking for the member's removal.
+   *
+   * @param options {object}
+   * @param options.ack {PushWriteAck}
+   * @param options.current {SyncedDoc}   the row as stored; read, never
+   *   mutated
+   * @returns {Record<string, unknown>}
+   */
+  function buildPatch({
+    ack,
+    current
+  }: {
+    ack: PushWriteAck
+    current: SyncedDoc
+  }): Record<string, unknown> {
+    const { id, content, meta } = ack
+    const patch: Record<string, unknown> = {}
+    if (content?.etag !== undefined) {
+      const { etag, createdBy } = content
+      const candidate: Partial<SyncedDoc> = { etag }
+      // The stamp is patched whole or not at all; a partial one is left out.
+      // A row `findOne` returned is live, and so is one `incrementalModify`
+      // hands over for a live row. The label is taken from the pushed state
+      // so the comparison ignores it.
+      if (
+        isWriteStamp(content) &&
+        statesEqual(
+          { ...current, _deleted: false, writerId: ack.pushedState.writerId },
+          ack.pushedState
+        )
+      ) {
+        const { updatedAt, updatedAtCounter, originId } = content
+        const stamp = { updatedAt, updatedAtCounter, originId }
+        if (fitsSchema({ id, members: stamp })) {
+          Object.assign(candidate, stamp)
+        }
+      }
+      if (
+        createdBy !== undefined &&
+        fitsSchema({ id, members: { createdBy } })
+      ) {
+        candidate.createdBy = createdBy
+      }
+      // Declared, the label lands; undeclared, `undefined` removes the member.
+      if (writerId === undefined || fitsSchema({ id, members: { writerId } })) {
+        candidate.writerId = writerId
+      }
+      assignDiffering({ patch, current, candidate })
+    }
+    if (meta?.etag !== undefined) {
+      const candidate: Partial<SyncedDoc> = { metaEtag: meta.etag }
+      if (
+        isMetaStamp(meta.meta) &&
+        fitsSchema({ id, members: meta.meta, properties: metaProperties })
+      ) {
+        candidate.meta = meta.meta
+      }
+      assignDiffering({ patch, current, candidate })
+    }
+    return patch
+  }
+
   return async function writeBack(ack: PushWriteAck): Promise<void> {
     try {
       const doc = await rxCollection.findOne(ack.id).exec()
       if (doc === null) {
         return
       }
-      const { id, content, meta } = ack
-      // A read-only snapshot, compared and never mutated.
-      const current = doc.toJSON() as SyncedDoc
-      const patch: Record<string, unknown> = {}
-      if (content?.etag !== undefined) {
-        const { etag, createdBy } = content
-        const candidate: Partial<SyncedDoc> = { etag }
-        // The stamp is patched whole or not at all; a partial one is left out.
-        // `toJSON()` strips `_deleted`; a row `findOne` returned is live. The
-        // label is taken from the pushed state so the comparison ignores it.
-        if (
-          isWriteStamp(content) &&
-          statesEqual(
-            { ...current, _deleted: false, writerId: ack.pushedState.writerId },
-            ack.pushedState
-          )
-        ) {
-          const { updatedAt, updatedAtCounter, originId } = content
-          const stamp = { updatedAt, updatedAtCounter, originId }
-          if (fitsSchema({ id, members: stamp })) {
-            Object.assign(candidate, stamp)
-          }
-        }
-        if (
-          createdBy !== undefined &&
-          fitsSchema({ id, members: { createdBy } })
-        ) {
-          candidate.createdBy = createdBy
-        }
-        // Declared, the label lands; undeclared, `undefined` removes the member.
-        if (
-          writerId === undefined ||
-          fitsSchema({ id, members: { writerId } })
-        ) {
-          candidate.writerId = writerId
-        }
-        assignDiffering({ patch, current, candidate })
-      }
-      if (meta?.etag !== undefined) {
-        const candidate: Partial<SyncedDoc> = { metaEtag: meta.etag }
-        if (
-          isMetaStamp(meta.meta) &&
-          fitsSchema({ id, members: meta.meta, properties: metaProperties })
-        ) {
-          candidate.meta = meta.meta
-        }
-        assignDiffering({ patch, current, candidate })
-      }
-      if (Object.keys(patch).length > 0) {
+      // A row that is already current gets no write and no follow-up cycle.
+      const snapshot = buildPatch({ ack, current: doc.toJSON() as SyncedDoc })
+      if (Object.keys(snapshot).length > 0) {
         // `incrementalPatch` cannot remove a member, so the patch is applied
-        // by hand: an `undefined` value deletes the member instead.
+        // by hand: an `undefined` value deletes the member instead. It is
+        // rebuilt against `docData`, the revision this write lands on, so an
+        // edit that landed since the read above keeps its own stamp.
         await doc.incrementalModify(docData => {
+          const patch = buildPatch({ ack, current: docData })
           for (const [member, value] of Object.entries(patch)) {
             if (value === undefined) {
               // Only an optional member is ever asked to be removed.

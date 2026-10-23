@@ -253,6 +253,37 @@ describe('createSyncController lifecycle', () => {
     await controller.stop()
   })
 
+  it('keeps the error status when the failed cycle flips active back to false', async () => {
+    // RxDB emits a pull-apply failure on `error$` and then runs the cycle's
+    // `active.next(false)`; that `false` is not a completed cycle.
+    const cancelOrder: string[] = []
+    const replication = fakeReplication(cancelOrder, 'notes')
+    createWasReplication.mockReturnValue(replication)
+    const statuses: string[] = []
+    const controller = createSyncController({
+      port: {
+        wasClient,
+        spaceId: 'space-1',
+        baseUrl: 'https://was.example',
+        collections: [{ key: 'notes', id: 'notes' }],
+        rxCollection: (() => fakeRxCollection()) as never
+      },
+      onStatus: (_key, _id, status) => statuses.push(status),
+      pollMs: 0
+    })
+    await controller.start()
+
+    replication.active$.emit(true)
+    replication.error$.emit(new Error('apply failed'))
+    replication.active$.emit(false)
+    expect(statuses).toEqual(['idle', 'syncing', 'error'])
+    // The next cycle clears the mark and reports normally.
+    replication.active$.emit(true)
+    replication.active$.emit(false)
+    expect(statuses).toEqual(['idle', 'syncing', 'error', 'syncing', 'synced'])
+    await controller.stop()
+  })
+
   it('does not report synced before any cycle has run', async () => {
     const cancelOrder: string[] = []
     const replication = fakeReplication(cancelOrder, 'notes')

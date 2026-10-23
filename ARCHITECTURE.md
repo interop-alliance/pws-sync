@@ -98,30 +98,32 @@ numbered so items and reviews can cite them.
    the labels must match for the retry to fire; with no label on either side,
    equality decides. The push-ack write-back only makes the case rarer -- it is
    best-effort and swallows its own failure -- so the retry stays the authority
-   for deletes. A row removed while its create `PUT` is in flight leaves a live
-   assumed primary with no validator, since RxDB records the pushed state and
-   the write-back finds no live row to patch. That delete re-reads the primary
-   first, through the same batch-memoized read. An absent or tombstoned primary
-   is the already-gone outcome, and own content under the rule above is deleted
-   with `If-Match` on the re-read validator (with none only when the primary
-   carries none, as on a hidden-`ETag` deployment). A changed body or another
-   writer's label sends no delete and surfaces the primary as a conflict. A
-   delete with no assumed primary is skipped, not sent: the row was created and
-   deleted locally before this replica ever pushed it, so the replica holds no
-   server state for it, while another replica may hold a live resource under the
-   same content-addressed id (invariant 2). HTTP has no precondition for "delete
-   only what I created" (an `If-Match` needs a validator this replica never had,
-   and a header-less `DELETE` would tombstone the other replica's copy), so
-   `src/pushWrites.ts` issues no write and reports the row accepted with no ack,
-   the create path's `If-None-Match: *` guard mirrored. RxDB then settles the
-   local tombstone as the assumed primary. The replica keeps that tombstone
-   until the resource next changes on the feed (RxDB defers a pulled state
-   behind a pending local change, and the initial pull pages past the live copy
-   while the delete is still pending); the first such change brings the live
-   copy down, since nothing is pending against the row by then. The integration
-   suite pins the skip, the intact copy, and that convergence. A delete's `404`
-   (was-client's not-found signal, matched by name) is the already-gone outcome
-   on either delete call, not an error: a conformant server answers `204` for an
+   for deletes. A row edited or removed while its create `PUT` is in flight, or
+   whose create's write-back failed, leaves a live assumed primary with no
+   validator, since RxDB records the pushed state and the write-back finds no
+   live row to patch. That update or delete re-reads the primary first, through
+   the same batch-memoized read, and own content under the rule above is written
+   or deleted with `If-Match` on the re-read validator (with none only when the
+   primary carries none, as on a hidden-`ETag` deployment). A changed body or
+   another writer's label sends nothing and surfaces the primary as a conflict.
+   An absent or tombstoned primary is the already-gone outcome for a delete, and
+   a tombstone conflict entry for an update. A delete with no assumed primary is
+   skipped, not sent: the row was created and deleted locally before this
+   replica ever pushed it, so the replica holds no server state for it, while
+   another replica may hold a live resource under the same content-addressed id
+   (invariant 2). HTTP has no precondition for "delete only what I created" (an
+   `If-Match` needs a validator this replica never had, and a header-less
+   `DELETE` would tombstone the other replica's copy), so `src/pushWrites.ts`
+   issues no write and reports the row accepted with no ack, the create path's
+   `If-None-Match: *` guard mirrored. RxDB then settles the local tombstone as
+   the assumed primary. The replica keeps that tombstone until the resource next
+   changes on the feed (RxDB defers a pulled state behind a pending local
+   change, and the initial pull pages past the live copy while the delete is
+   still pending); the first such change brings the live copy down, since
+   nothing is pending against the row by then. The integration suite pins the
+   skip, the intact copy, and that convergence. A delete's `404` (was-client's
+   not-found signal, matched by name) is the already-gone outcome on either
+   delete call, not an error: a conformant server answers `204` for an
    authorized delete of an absent resource, so the `404` is a masked
    authorization refusal that no retry can advance, and rethrowing it would pin
    the whole batch in RxDB's retry loop. Revoked access still surfaces on the
@@ -130,9 +132,14 @@ numbered so items and reviews can cite them.
    delete race, raised as the not-found signal on the default port and as the
    auth signal with `status: 404` on a `mapAuthErrors` port. One classifier in
    `src/pushWrites.ts` takes both shapes to the same corroborating feed re-read,
-   and an absent or tombstoned primary resolves the row as a tombstone conflict
-   entry for the conflict handler; a primary that is alive rethrows the original
-   signal. A tombstone is absent for preconditions: a `412` whose re-read
+   and the row resolves as a conflict entry for the conflict handler on what the
+   re-read finds: the tombstone entry for an absent or tombstoned primary, the
+   live primary otherwise (logged at `warn`, since a live resource whose `/meta`
+   write 404s is a server oddity). Neither rethrows, because a rethrow would pin
+   the batch in RxDB's identical retries. A push batch itself settles every row
+   before it rejects on a non-conflict error, so a sibling's write that already
+   landed is acked and written back rather than left in flight behind the
+   rejection. A tombstone is absent for preconditions: a `412` whose re-read
    resolves `null` builds a tombstone conflict entry carrying only `id`, the
    local `updatedAt`, and `_deleted: true`, with no `etag` and no other stamp
    member (the plain port cannot tell a tombstone from a resource that never
@@ -360,27 +367,29 @@ numbered so items and reviews can cite them.
     the stored checkpoint; restarting the feed from the beginning", with `err`).
     That entry is the consumer's signal that a restart happened. RxDB stores a
     checkpoint only with a non-empty page, so after an empty restart it offers
-    the refused one again on every poll. The handler remembers the refusal for
-    the life of the replication and skips straight to the restart, so the `400`
-    is paid once. The teaching server scopes a checkpoint to the Collection URL
-    and to one life of the Collection's feed, its generation. A Collection
-    delete leaves a tombstone and drops the feed counter. A re-create under the
-    same id mints a fresh generation, and a checkpoint from before is refused.
-    The restarted feed lists only the new life's writes. A row that existed only
-    in the previous generation stays in the replica with no tombstone to clear
-    it. It is not pushed back on its own, since RxDB holds nothing pending for
-    it. An edit to it goes out with the old validator and draws a `412`. The
-    re-read primary is absent, so the push re-creates the resource on the server
-    as a create-if-absent. The integration suite pins both halves: the row
-    lingers locally while absent on the server, and returns only when edited.
-    Clearing every row the restarted feed does not list was rejected. The same
-    restart fires when another server issued the checkpoint, the failover case
-    WS-28 covers, and the driver cannot tell the two cases apart. A clear would
-    then delete the replica's rows on a failover to a server that is merely
-    behind. A consumer that deletes and re-creates a Collection, or learns that
-    one was, forgets the replica together with its `rx-replication-meta-*`
-    instance. That is the same forget invariant 7 (the replica schema is stored
-    state) describes for a schema change.
+    the refused one again on every poll. The handler remembers the refusal and
+    skips straight to the restart, so the `400` is paid once, and forgets it
+    once a non-empty page hands RxDB a new checkpoint to persist (a checkpoint
+    encodes a feed position, so a re-created Collection can later issue the same
+    string legitimately). The teaching server scopes a checkpoint to the
+    Collection URL and to one life of the Collection's feed, its generation. A
+    Collection delete leaves a tombstone and drops the feed counter. A re-create
+    under the same id mints a fresh generation, and a checkpoint from before is
+    refused. The restarted feed lists only the new life's writes. A row that
+    existed only in the previous generation stays in the replica with no
+    tombstone to clear it. It is not pushed back on its own, since RxDB holds
+    nothing pending for it. An edit to it goes out with the old validator and
+    draws a `412`. The re-read primary is absent, so the push re-creates the
+    resource on the server as a create-if-absent. The integration suite pins
+    both halves: the row lingers locally while absent on the server, and returns
+    only when edited. Clearing every row the restarted feed does not list was
+    rejected. The same restart fires when another server issued the checkpoint,
+    the failover case WS-28 covers, and the driver cannot tell the two cases
+    apart. A clear would then delete the replica's rows on a failover to a
+    server that is merely behind. A consumer that deletes and re-creates a
+    Collection, or learns that one was, forgets the replica together with its
+    `rx-replication-meta-*` instance. That is the same forget invariant 7 (the
+    replica schema is stored state) describes for a schema change.
 
 ## Ownership heuristics
 

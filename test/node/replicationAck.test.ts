@@ -266,6 +266,61 @@ function editDuringPushPort(concurrentEdit: Partial<SyncedDoc>) {
   }
 }
 
+/**
+ * A port whose first content write is acked with a stamp, and whose
+ * collection lands `concurrentEdit` on the row AFTER the write-back has read
+ * it and BEFORE its `incrementalModify` runs: the row is edited between the
+ * write-back's two awaits. Armed by the first accepted write, so only the
+ * write-back's own read is intercepted.
+ */
+function editBetweenReadAndWriteBackPort(concurrentEdit: Partial<SyncedDoc>) {
+  const port = ackPort({ contentAck: { etag: '"g.4"' }, metaAck: {} })
+  return {
+    port,
+    beforeStart(collection: RxCollection<SyncedDoc>) {
+      let armed = false
+      port.putContent.mockImplementationOnce(async () => {
+        armed = true
+        return {
+          etag: '"g.4"',
+          updatedAt: '2026-01-02T00:00:00.500Z',
+          updatedAtCounter: 4,
+          originId: 'origin-a'
+        }
+      })
+      const findOne = collection.findOne.bind(collection)
+      collection.findOne = ((id: string) => {
+        const query = findOne(id)
+        if (!armed) {
+          return query
+        }
+        armed = false
+        return {
+          async exec() {
+            const doc = await query.exec()
+            return new Proxy(doc!, {
+              get(target, member) {
+                if (member === 'incrementalModify') {
+                  return async (
+                    mutate: Parameters<typeof target.incrementalModify>[0]
+                  ) => {
+                    await target.incrementalPatch(concurrentEdit)
+                    return target.incrementalModify(mutate)
+                  }
+                }
+                const value = Reflect.get(target, member) as unknown
+                return typeof value === 'function'
+                  ? (value as (...args: unknown[]) => unknown).bind(target)
+                  : value
+              }
+            })
+          }
+        }
+      }) as typeof collection.findOne
+    }
+  }
+}
+
 describe('ack write-back: the acked state beside the validator', () => {
   it('stamps the content ack as a unit beside the etag: the triple and createdBy', async () => {
     const port = ackPort({
@@ -386,6 +441,28 @@ describe('ack write-back: the acked state beside the validator', () => {
 
     expect(acked.data).toEqual({ n: 2 })
     expect(acked.updatedAt).toBe('2026-01-02T00:00:00Z')
+    expect(acked.updatedAtCounter).toBe(3)
+    expect(acked.etag).toBe('"g.4"')
+    expect(port.putContent).toHaveBeenCalledTimes(2)
+  })
+
+  it('leaves the stamp of a row edited between the write-back read and its write', async () => {
+    // The pushed-state check passes against the read, then the edit lands
+    // before `incrementalModify` runs on the latest revision. The patch is
+    // rebuilt there, so the edit keeps its stamp and still gets the validator.
+    const { port, beforeStart } = editBetweenReadAndWriteBackPort({
+      data: { n: 2 },
+      updatedAt: '2026-01-03T00:00:00Z'
+    })
+    const { acked } = await pushEdit({
+      port,
+      replicationIdentifier: 'ack-edited-between-read-and-write',
+      edit: { data: { n: 1 }, updatedAt: '2026-01-02T00:00:00Z' },
+      beforeStart
+    })
+
+    expect(acked.data).toEqual({ n: 2 })
+    expect(acked.updatedAt).toBe('2026-01-03T00:00:00Z')
     expect(acked.updatedAtCounter).toBe(3)
     expect(acked.etag).toBe('"g.4"')
     expect(port.putContent).toHaveBeenCalledTimes(2)

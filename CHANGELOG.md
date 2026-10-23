@@ -1,5 +1,35 @@
 # @interop/was-sync Changelog
 
+## 0.10.2 - TBD
+
+### Fixed
+
+- A content update over a live assumed primary that holds no `etag` re-reads the
+  primary and conditions the `PUT` on the re-read validator, as the
+  validator-less delete already did, instead of going out unconditional and
+  overwriting another replica's copy. A differing body, another writer's label,
+  or an absent primary is reported as a conflict with no write sent.
+- The ack write-back rebuilds its patch inside `incrementalModify`, against the
+  revision the write lands on, so a local edit that lands between the
+  write-back's read and its write keeps its own stamp.
+- A `/meta` write's `404` whose corroborating re-read finds a live primary is
+  reported as a conflict on that primary (logged at `warn`) instead of being
+  rethrown, which pinned the whole batch in RxDB's identical retries.
+- The push handler lets every row of a batch settle before rejecting it on a
+  non-conflict error, so a sibling write that already landed is acked and
+  written back rather than left in flight behind the rejection.
+- The controller no longer reports `synced` over the `error` of a cycle that
+  failed while applying a pulled page (RxDB emits the error before it flips
+  `active$` back to `false`).
+- The pull handler forgets a refused checkpoint once a non-empty page is
+  persisted, so a byte-identical checkpoint a re-created Collection later issues
+  legitimately is resumed from rather than restarting the feed on every poll.
+
+### Changed
+
+- The controller resolves each collection's RxDB handle once per start.
+- Removed the empty `src/declarations.d.ts`.
+
 ## 0.10.1 - 2026-10-12
 
 ### Changed

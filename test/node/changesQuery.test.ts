@@ -384,6 +384,39 @@ describe('createPullHandler', () => {
     expect(port.calls[2]).toEqual({ limit: 100 })
   })
 
+  it('forgets the refusal once a non-empty page is persisted, so the same string issued later is resumed from', async () => {
+    // A checkpoint encodes a feed position, so a re-created Collection can
+    // legitimately issue the byte-identical string the old feed was refused
+    // on. Once the restarted page handed RxDB a checkpoint, the refusal is
+    // over, and that string offered again is sent rather than skipped.
+    const calls: Array<{ checkpoint?: SyncCheckpoint; limit: number }> = []
+    let refuseOnce = true
+    const port = {
+      calls,
+      async query(options: { checkpoint?: SyncCheckpoint; limit: number }) {
+        calls.push(options)
+        if (options.checkpoint === cpA && refuseOnce) {
+          refuseOnce = false
+          throw rejected
+        }
+        return options.checkpoint === undefined
+          ? { documents: [doc('a', cpA)], checkpoint: cpA }
+          : { documents: [], checkpoint: null }
+      }
+    }
+    const pull = createPullHandler(port as unknown as WasSyncPort)
+
+    const restarted = await pull({ checkpoint: cpA }, 100)
+    expect(restarted.checkpoint).toEqual({ checkpoint: cpA })
+
+    await pull({ checkpoint: cpA }, 100)
+    expect(calls).toEqual([
+      { checkpoint: cpA, limit: 100 },
+      { limit: 100 },
+      { checkpoint: cpA, limit: 100 }
+    ])
+  })
+
   it('logs one warn for the refused checkpoint, and none when the memoized refusal is skipped', async () => {
     const pull = createPullHandler(refusingPort([]))
 

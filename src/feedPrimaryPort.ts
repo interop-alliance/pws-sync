@@ -60,6 +60,14 @@ function toPrimaryState(doc: WireDoc): PrimaryState {
  * Walks the changes feed from its origin looking for one resource, memoizing
  * every document it pages past when the caller supplied a batch `cache`.
  *
+ * The walk stops at the first page that carries the resource. This relies on
+ * the feed holding one entry per resource, at the position of its latest
+ * write: the spec describes a later write as re-surfacing the resource, and
+ * the reference server stores one feed position per record. A server that
+ * kept a historical entry per write would hand back the oldest revision here,
+ * so the conflict entry would carry a stale validator; such a feed is not one
+ * this walk is written for. Within a page the LAST entry for an id wins.
+ *
  * @param options {object}
  * @param options.base {WasSyncBasePort}
  * @param options.id {string}

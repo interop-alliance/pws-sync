@@ -317,8 +317,9 @@ export function createSyncController({
           port.feedPrimaryRead === true
             ? withFeedPrimaryRead(basePort)
             : basePort
+        const rxCollection = port.rxCollection(key)
         const state = createWasReplication({
-          rxCollection: port.rxCollection(key),
+          rxCollection,
           wasPort,
           replicationIdentifier: identifierFor({ collectionId: id }),
           ...(port.batchSize !== undefined && { batchSize: port.batchSize }),
@@ -339,17 +340,24 @@ export function createSyncController({
         // would report `synced` over the `idle` just set, for a session that
         // has replicated nothing. The first `synced` follows a `true`.
         let cycleSeen = false
+        // RxDB reports a cycle that fails while applying a pulled page on
+        // `error$` BEFORE it flips `active$` back to `false`. That `false` is
+        // not a completed cycle either, so it must not report `synced` over
+        // the `error` just set; the next `true` clears the mark.
+        let cycleFailed = false
         entry.subscriptions.push(
           state.active$.subscribe(active => {
             if (active) {
               cycleSeen = true
+              cycleFailed = false
               onStatus(key, id, 'syncing')
-            } else if (cycleSeen) {
+            } else if (cycleSeen && !cycleFailed) {
               onStatus(key, id, 'synced')
             }
           }),
           state.error$.subscribe(err => {
             log.error('Sync error for collection', { id, err })
+            cycleFailed = true
             onStatus(key, id, 'error')
             if (onAuthError !== undefined && isAuthError(err)) {
               onAuthError()
@@ -362,9 +370,7 @@ export function createSyncController({
           // the push path, which a pull-only stream misses, so the losing
           // side's view would otherwise keep its stale local edit.
           entry.subscriptions.push(
-            port
-              .rxCollection(key)
-              .$.subscribe(event => onRemoteChange(key, event))
+            rxCollection.$.subscribe(event => onRemoteChange(key, event))
           )
         }
       }

@@ -74,7 +74,12 @@ export function wireDocToRxDoc(doc: WireDoc): WithDeleted<SyncedDoc> {
  * the restarted feed is empty the refused checkpoint stays stored and RxDB
  * offers it again on the next poll; the handler remembers the refusal and
  * skips straight to the restart, so the 400 round trip is paid once per
- * replication rather than once per poll.
+ * replication rather than once per poll. The refusal is forgotten once a
+ * non-empty page hands RxDB a checkpoint to persist, since RxDB then stops
+ * offering the refused one. A checkpoint is a deterministic encoding of a feed
+ * position, so a Collection deleted and re-created at the same URL can later
+ * issue the byte-identical string legitimately; remembered for the handler's
+ * lifetime, that string would restart the feed on every poll it was offered.
  *
  * The restart clears nothing. A row that existed only before a Collection was
  * deleted and re-created stays in the replica. So does a row the new server
@@ -126,6 +131,11 @@ export function createPullHandler(port: WasSyncPort) {
     // Empty page (`checkpoint: null`) means "no change": keep the prior
     // checkpoint so the feed does not restart from the beginning.
     const next = response.checkpoint ?? resumeFrom
+    // A non-empty page's checkpoint is what RxDB persists and offers next, so
+    // the refused one is no longer in play (the header's refusal note).
+    if (response.checkpoint !== null && response.checkpoint !== undefined) {
+      refused = undefined
+    }
     return {
       documents: response.documents.map(wireDocToRxDoc),
       checkpoint: next === undefined ? undefined : { checkpoint: next }

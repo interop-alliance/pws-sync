@@ -207,6 +207,23 @@ function newDoc(over: Partial<WithDeleted<SyncedDoc>>): WithDeleted<SyncedDoc> {
   }
 }
 
+/**
+ * The server's live primary for `r1` on the validator-less paths, with the body
+ * the assumed primary holds unless overridden.
+ *
+ * @param over {Partial<PrimaryState>}
+ * @returns {PrimaryState}
+ */
+function livePrimary(over: Partial<PrimaryState> = {}): PrimaryState {
+  return {
+    updatedAt: '2026-02-02T00:00:00Z',
+    ...contentStamp,
+    etag: etagFor(1),
+    data: { a: 1 },
+    ...over
+  }
+}
+
 describe('createPushHandler routing', () => {
   it('creates content with If-None-Match when there is no assumed primary', async () => {
     const port = fakePushPort()
@@ -992,8 +1009,17 @@ describe('createPushHandler write acks', () => {
   it('reports no ack when the server exposes no write ETags, and sends no If-Match on the next update', async () => {
     // A backend with no readable `ETag` on write responses accepts the write
     // and hands back no validator, so there is no acked state to write back
-    // and the row keeps the validator it had (none, for a fresh create).
-    const port = fakePushPort({ ackWrites: false })
+    // and the row keeps the validator it had (none, for a fresh create). The
+    // next update re-reads the primary, which carries no validator either, so
+    // the write goes unconditional.
+    const port = fakePushPort({
+      ackWrites: false,
+      primary: {
+        updatedAt: '2026-01-01T00:00:00Z',
+        ...contentStamp,
+        data: { a: 1 }
+      }
+    })
     const acks: PushWriteAck[] = []
     const push = createPushHandler({
       port,
@@ -1018,6 +1044,7 @@ describe('createPushHandler write acks', () => {
       id: 'r1',
       data: { a: 2 }
     })
+    expect(port.getCalls).toEqual(['r1'])
     expect(acks).toEqual([])
   })
 
@@ -1290,7 +1317,7 @@ describe('createPushHandler write acks', () => {
 
     const conflicts = await push([
       {
-        assumedMasterState: newDoc({ data: { a: 1 } }),
+        assumedMasterState: newDoc({ etag: etagFor(0), data: { a: 1 } }),
         newDocumentState: newDoc({
           data: { a: 2 },
           custom: { jwe: 'mine' }
@@ -1413,7 +1440,7 @@ describe('createPushHandler metadata 404 corroboration', () => {
 
     const conflicts = await push([
       {
-        assumedMasterState: newDoc({ data: { a: 1 } }),
+        assumedMasterState: newDoc({ etag: etagFor(0), data: { a: 1 } }),
         newDocumentState: newDoc({
           data: { a: 2 },
           custom: { jwe: 'mine' }
@@ -1421,6 +1448,10 @@ describe('createPushHandler metadata 404 corroboration', () => {
       }
     ])
 
+    expect(port.writes.map(write => write.kind)).toEqual([
+      'putContent',
+      'putMeta'
+    ])
     expect(port.getCalls).toEqual(['r1'])
     expect(conflicts).toStrictEqual([
       {
@@ -1577,23 +1608,29 @@ describe('createPushHandler metadata 404 corroboration', () => {
       expected: { name: 'WasSyncAuthError', status: 404 }
     }
   ])(
-    'propagates $shape when the primary is alive and readable',
+    'resolves $shape as a conflict on the live primary, with a warn',
     async ({ port: portShape, expected }) => {
       // The resource exists and the feed serves it, yet its /meta write 404s:
-      // the write itself was rejected, so the original signal stands.
+      // a server with no `/meta` document for a live resource, or a refusal
+      // scoped to `/meta`. Rethrowing would wedge the whole batch in RxDB's
+      // identical retries, so the row is handed to RxDB as a conflict on the
+      // live primary and the oddity is logged.
+      const capture = captureLogger('sync')
+      const previous = setLogger(capture.logger)
       const port = fakePushPort({
         [portShape]: { kind: 'putMeta', id: 'r1' },
         primary: {
           updatedAt: '2026-03-03T00:00:00Z',
           ...contentStamp,
           deleted: false,
+          etag: etagFor(7),
           data: { a: 1 }
         }
       })
       const push = createPushHandler({ port })
 
-      await expect(
-        push([
+      try {
+        const conflicts = await push([
           {
             assumedMasterState: newDoc({ data: { a: 1 } }),
             newDocumentState: newDoc({
@@ -1602,8 +1639,26 @@ describe('createPushHandler metadata 404 corroboration', () => {
             })
           }
         ])
-      ).rejects.toMatchObject(expected)
-      expect(port.getCalls).toEqual(['r1'])
+        expect(port.getCalls).toEqual(['r1'])
+        expect(conflicts).toStrictEqual([
+          {
+            id: 'r1',
+            updatedAt: '2026-03-03T00:00:00Z',
+            ...contentStamp,
+            etag: etagFor(7),
+            data: { a: 1 },
+            _deleted: false
+          }
+        ])
+        const warns = capture.events.filter(event => event.level === 'warn')
+        expect(warns).toHaveLength(1)
+        expect(warns[0]!.msg).toMatch(
+          /refused as not found while the resource reads live/
+        )
+        expect(warns[0]!.err).toMatchObject(expected)
+      } finally {
+        setLogger(previous)
+      }
     }
   )
 })
@@ -2109,23 +2164,6 @@ describe('createPushHandler validator-less delete', () => {
   // the content-addressed id, so the delete re-reads the primary first.
 
   /**
-   * The server's live primary for `r1`, with the body the assumed primary
-   * holds unless overridden.
-   *
-   * @param over {Partial<PrimaryState>}
-   * @returns {PrimaryState}
-   */
-  function livePrimary(over: Partial<PrimaryState> = {}): PrimaryState {
-    return {
-      updatedAt: '2026-02-02T00:00:00Z',
-      ...contentStamp,
-      etag: etagFor(1),
-      data: { a: 1 },
-      ...over
-    }
-  }
-
-  /**
    * The push row under test: a delete over a live assumed primary that holds
    * no `etag`.
    */
@@ -2341,6 +2379,166 @@ describe('createPushHandler validator-less delete', () => {
         _deleted: false
       }
     ])
+  })
+})
+
+describe('createPushHandler validator-less update', () => {
+  // A row edited locally while its create `PUT` is in flight, or whose
+  // create's ack write-back failed: RxDB records the pushed live state as the
+  // assumed primary with no `etag`. A header-less `PUT` would overwrite another
+  // replica's copy under the content-addressed id, so the update re-reads the
+  // primary first and conditions on its validator.
+
+  /**
+   * The push row under test: a content update over a live assumed primary
+   * that holds no `etag`.
+   */
+  const validatorLessUpdate = {
+    assumedMasterState: newDoc({ data: { a: 1 } }),
+    newDocumentState: newDoc({ data: { a: 2 } })
+  }
+
+  it('re-reads the primary and conditions the write on its ETag', async () => {
+    const port = fakePushPort({ primary: livePrimary() })
+    const push = createPushHandler({ port, writerId: 'writer-a' })
+
+    const conflicts = await push([validatorLessUpdate])
+
+    expect(port.getCalls).toEqual(['r1'])
+    expect(port.writes).toStrictEqual([
+      {
+        kind: 'putContent',
+        id: 'r1',
+        data: { a: 2 },
+        ifMatch: etagFor(1),
+        writerId: 'writer-a'
+      }
+    ])
+    expect(conflicts).toEqual([])
+  })
+
+  it('reports the content ack like the ordinary update path', async () => {
+    const port = fakePushPort({ primary: livePrimary() })
+    const acks: PushWriteAck[] = []
+    const push = createPushHandler({
+      port,
+      onWriteAccepted: async ack => {
+        acks.push(ack)
+      }
+    })
+
+    await push([validatorLessUpdate])
+
+    expect(acks).toEqual([ackOf({ content: { etag: etagFor(1) } })])
+  })
+
+  it('sends no write and reports a tombstone conflict when the re-read is absent', async () => {
+    // Unlike a delete, an update of a resource the server no longer holds is
+    // a remote delete racing the local edit: the conflict handler decides.
+    const port = fakePushPort({ primary: null })
+    const push = createPushHandler({ port })
+
+    const conflicts = await push([validatorLessUpdate])
+
+    expect(port.writes).toEqual([])
+    expect(conflicts).toStrictEqual([
+      { id: 'r1', updatedAt: '2026-01-01T00:00:00Z', _deleted: true }
+    ])
+  })
+
+  it('sends no write and reports a conflict when the re-read body differs', async () => {
+    const port = fakePushPort({ primary: livePrimary({ data: { a: 9 } }) })
+    const push = createPushHandler({ port })
+
+    const conflicts = await push([validatorLessUpdate])
+
+    expect(port.writes).toEqual([])
+    expect(conflicts).toHaveLength(1)
+    expect(conflicts[0]).toMatchObject({
+      id: 'r1',
+      etag: etagFor(1),
+      data: { a: 9 }
+    })
+  })
+
+  it("sends no write and reports a conflict when the equal body is under another writer's label", async () => {
+    const port = fakePushPort({
+      primary: livePrimary({ writerId: 'writer-b' })
+    })
+    const push = createPushHandler({ port, writerId: 'writer-a' })
+
+    const conflicts = await push([validatorLessUpdate])
+
+    expect(port.writes).toEqual([])
+    expect(conflicts).toHaveLength(1)
+  })
+
+  it('reports a 412 on the conditioned write as a conflict', async () => {
+    const port = fakePushPort({
+      primary: livePrimary(),
+      conflictOn: { kind: 'putContent', id: 'r1' }
+    })
+    const push = createPushHandler({ port })
+
+    const conflicts = await push([validatorLessUpdate])
+
+    expect(port.writes).toHaveLength(1)
+    expect(conflicts).toHaveLength(1)
+  })
+})
+
+describe('createPushHandler batch settlement', () => {
+  it('lets every row settle, and its ack be written back, before rejecting the batch', async () => {
+    // One row fails at once; a sibling's write is still in flight. The batch
+    // rejects with the failure, but only after the sibling's write landed and
+    // its ack was handed to `onWriteAccepted`.
+    const order: string[] = []
+    let release: () => void = () => {}
+    const port: WasSyncPort = {
+      async query() {
+        return { documents: [], checkpoint: null }
+      },
+      async putContent({ id }) {
+        if (id === 'bad') {
+          order.push('bad rejected')
+          throw new Error('network down')
+        }
+        await new Promise<void>(resolve => {
+          release = resolve
+        })
+        order.push('ok landed')
+        return { etag: etagFor(1) }
+      },
+      async deleteContent() {},
+      async putMeta() {},
+      async get() {
+        return null
+      }
+    }
+    const push = createPushHandler({
+      port,
+      onWriteAccepted: async ack => {
+        order.push(`acked ${ack.id}`)
+      }
+    })
+
+    const pending = push([
+      { newDocumentState: newDoc({ id: 'ok', data: { a: 1 } }) },
+      { newDocumentState: newDoc({ id: 'bad', data: { a: 2 } }) }
+    ])
+    let settled = false
+    pending
+      .catch(() => {})
+      .finally(() => {
+        settled = true
+      })
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(order).toEqual(['bad rejected'])
+    expect(settled).toBe(false)
+
+    release()
+    await expect(pending).rejects.toThrow('network down')
+    expect(order).toEqual(['bad rejected', 'ok landed', 'acked ok'])
   })
 })
 
@@ -2565,7 +2763,7 @@ describe('createPushHandler typed signals from another copy', () => {
 
     const conflicts = await push([
       {
-        assumedMasterState: newDoc({ data: { a: 1 } }),
+        assumedMasterState: newDoc({ etag: etagFor(0), data: { a: 1 } }),
         newDocumentState: newDoc({
           data: { a: 2 },
           custom: { jwe: 'mine' }
