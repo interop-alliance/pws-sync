@@ -29,6 +29,12 @@
 
 - The controller resolves each collection's RxDB handle once per start.
 - Removed the empty `src/declarations.d.ts`.
+- The feed-backed conflict re-read's per-batch memo records the checkpoint its
+  last walk stopped at (`PrimaryReadCache.checkpoint`), and a row the memo
+  misses resumes the walk from there instead of paging from the feed's origin
+  again. A batch of k conflicting rows now pages the feed once, as far as its
+  furthest resource, whatever order the rows' reads arrive in; an id absent from
+  the feed costs one re-read of its last page (WS-9).
 
 ## 0.10.1 - 2026-10-12
 

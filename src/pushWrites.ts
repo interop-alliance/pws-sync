@@ -645,9 +645,10 @@ async function pushRow({
  *
  * Each batch gets one short-lived primary-read memo, shared by its rows and
  * discarded with the batch (never held across batches, where it would go
- * stale). A conflict re-read walks the changes feed from its origin and so pages
- * past every other conflicting row's primary on the way; without the memo a batch
- * with k conflicts would run k concurrent full-feed walks.
+ * stale). A conflict re-read walks the changes feed and so pages past every
+ * other conflicting row's primary on the way; without the memo a batch with k
+ * conflicts would run k concurrent full-feed walks. With it the batch pages the
+ * feed once, as far as its furthest conflicting resource.
  *
  * @param options {object}
  * @param options.port {WasSyncPort}

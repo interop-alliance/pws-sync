@@ -57,8 +57,11 @@ function toPrimaryState(doc: WireDoc): PrimaryState {
 }
 
 /**
- * Walks the changes feed from its origin looking for one resource, memoizing
- * every document it pages past when the caller supplied a batch `cache`.
+ * Walks the changes feed looking for one resource, memoizing every document it
+ * pages past when the caller supplied a batch `cache`. With no `cache` the walk
+ * starts at the feed's origin. With one it resumes where the batch's previous
+ * walk stopped: every document before that point is already in the memo, so an
+ * id the memo lacks can only sit past it, or nowhere.
  *
  * The walk stops at the first page that carries the resource. This relies on
  * the feed holding one entry per resource, at the position of its latest
@@ -83,7 +86,7 @@ async function walkFeedFor({
   id: string
   cache?: PrimaryReadCache
 }): Promise<PrimaryState | null> {
-  let checkpoint: SyncCheckpoint | undefined
+  let checkpoint: SyncCheckpoint | undefined = cache?.checkpoint
   for (let page = 0; page < MAX_PAGES; page++) {
     const { documents, checkpoint: next } = await base.query({
       ...(checkpoint !== undefined && { checkpoint }),
@@ -93,6 +96,16 @@ async function walkFeedFor({
     if (cache !== undefined) {
       for (const [docId, doc] of byId) {
         cache.byId.set(docId, toPrimaryState(doc))
+      }
+    }
+    const atEnd = next === null || documents.length === 0
+    // The batch's next walk resumes past this page. The feed's last page is
+    // the exception: its checkpoint is kept so the next walk re-reads it,
+    // which is where a resource written after this read lands.
+    if (!atEnd) {
+      checkpoint = next
+      if (cache !== undefined) {
+        cache.checkpoint = next
       }
     }
     const found = byId.get(id)
@@ -105,12 +118,12 @@ async function walkFeedFor({
     // absent, never "every id this completed walk did not see": a row of the
     // same batch may have created its resource after this walk read the feed,
     // and answering `null` for it would fabricate a tombstone and drop a live
-    // payload -- exactly what the scan-budget throw below guards against.
-    if (next === null || documents.length === 0) {
+    // payload -- exactly what the scan-budget throw below guards against. Such
+    // an id costs the batch one re-read of the feed's last page, not a scan.
+    if (atEnd) {
       cache?.byId.set(id, null)
       return null
     }
-    checkpoint = next
   }
   // The page budget ran out before the feed's end. The feed is ordered by the
   // server's feed position, so a just-conflicted resource sits at the tail --
@@ -131,11 +144,14 @@ async function walkFeedFor({
  * feed. `query`, `putContent`, `deleteContent`, and `putMeta` pass straight
  * through.
  *
- * A walk starts at the feed's origin, so resolving one resource pages past many
- * others. With a per-push-batch `cache` the walk memoizes every one of them, and
- * a row that finds a walk already running waits for it rather than starting a
- * second -- so a batch of k conflicting rows costs one feed scan instead of k
- * concurrent ones. Without a `cache` the behavior is exactly as before.
+ * A walk pages the feed from its origin, so resolving one resource pages past
+ * many others. With a per-push-batch `cache` the walk memoizes every one of
+ * them, a row that finds a walk already running waits for it rather than
+ * starting a second, and a row the memo still misses resumes the batch's walk
+ * from where it stopped rather than from the origin. So a batch of k
+ * conflicting rows pages the feed once, as far as its furthest resource,
+ * whatever order the rows arrive in; an id the feed lacks adds one re-read of
+ * the feed's last page. Without a `cache` every read walks from the origin.
  *
  * @param base {WasSyncBasePort}
  * @returns {WasSyncPort}

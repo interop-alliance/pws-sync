@@ -5,7 +5,8 @@
  * Unit tests for the changes-feed primary re-read (`withFeedPrimaryRead`), driven
  * by a fake base port whose `query` returns scripted feed pages -- no server, no
  * RxDB engine. Covers the found / genuinely-absent / exhausted-scan paths, and
- * the per-push-batch memo that keeps k conflicting rows to one feed walk.
+ * the per-push-batch memo that keeps k conflicting rows to one pass over the
+ * feed, whatever order their reads arrive in.
  */
 import { describe, it, expect } from 'vitest'
 import { withFeedPrimaryRead } from '../../src/feedPrimaryPort.js'
@@ -387,17 +388,117 @@ describe('withFeedPrimaryRead get with a batch cache', () => {
     expect(base.queryCalls).toBe(1)
   })
 
-  it('walks again for an id the memo never saw', async () => {
+  it('re-reads the last page, not the feed, for an id the memo never saw', async () => {
     // A completed walk is NOT read as "every other id is absent": a row of the
     // same batch may have created its resource after the walk read the feed.
-    const base = fakeBasePort({ pages: [[wire({ id: 'r1' })]] })
+    // Such a resource lands at the tail, so the memo miss costs one re-read of
+    // the page the walk ended on, resumed from that page's own checkpoint.
+    const base = fakeBasePort({
+      pages: [[wire({ id: 'a' })], [wire({ id: 'b' })], [wire({ id: 'r1' })]]
+    })
     const port = withFeedPrimaryRead(base)
     const cache = emptyCache()
 
     await port.get({ id: 'r1', cache })
-    expect(base.queryCalls).toBe(1)
-    await port.get({ id: 'r2', cache })
-    expect(base.queryCalls).toBe(2)
+    expect(base.queries.map(query => query.checkpoint)).toStrictEqual([
+      undefined,
+      'cp-a',
+      'cp-b'
+    ])
+    expect(await port.get({ id: 'r2', cache })).toBeNull()
+    expect(await port.get({ id: 'r3', cache })).toBeNull()
+    expect(base.queries.map(query => query.checkpoint)).toStrictEqual([
+      undefined,
+      'cp-a',
+      'cp-b',
+      'cp-b',
+      'cp-b'
+    ])
+  })
+
+  it('re-reads an empty last page from the checkpoint that reached it', async () => {
+    // The feed's end showed as an empty page carrying a checkpoint the walk
+    // never follows (see the uncached case above). The resumed walk re-asks
+    // for that page from the checkpoint that produced it, not from `cp-tail`.
+    const base = fakeBasePort({
+      pages: [[wire({ id: 'r1' })], []],
+      tailCheckpoint: 'cp-tail'
+    })
+    const port = withFeedPrimaryRead(base)
+    const cache = emptyCache()
+
+    expect(await port.get({ id: 'missing', cache })).toBeNull()
+    expect(await port.get({ id: 'also-missing', cache })).toBeNull()
+    expect(base.queries.map(query => query.checkpoint)).toStrictEqual([
+      undefined,
+      'cp-r1',
+      'cp-r1'
+    ])
+  })
+
+  it('resumes the walk past the page a sibling stopped on, in feed order', async () => {
+    // Reads arriving in feed order are the worst case for a walk that stops
+    // at its own target: each later row misses the memo. The miss resumes the
+    // batch's walk from where it stopped, so three ids on three pages cost the
+    // batch three page reads, one pass over the feed.
+    const base = fakeBasePort({
+      pages: [
+        [wire({ id: 'r1', updatedAtCounter: 7 })],
+        [wire({ id: 'r2', updatedAtCounter: 9 })],
+        [wire({ id: 'r3', updatedAtCounter: 11 })]
+      ]
+    })
+    const port = withFeedPrimaryRead(base)
+    const cache = emptyCache()
+
+    expect(await port.get({ id: 'r1', cache })).toMatchObject({
+      updatedAtCounter: 7
+    })
+    expect(await port.get({ id: 'r2', cache })).toMatchObject({
+      updatedAtCounter: 9
+    })
+    expect(await port.get({ id: 'r3', cache })).toMatchObject({
+      updatedAtCounter: 11
+    })
+    expect(base.queries).toStrictEqual([
+      { limit: 500 },
+      { checkpoint: 'cp-r1', limit: 500 },
+      { checkpoint: 'cp-r2', limit: 500 }
+    ])
+  })
+
+  it('pages the feed once for concurrent reads whatever order they arrive in', async () => {
+    // Ids spread over three pages, the batch's rows reading concurrently, both
+    // against feed order (the first read's walk pages past the others) and in
+    // feed order (every later read waits, misses, and resumes the walk). Either
+    // way the batch reads each page once.
+    const pages = () => [
+      [wire({ id: 'r1', updatedAtCounter: 7 }), wire({ id: 'x' })],
+      [wire({ id: 'r2', updatedAtCounter: 9 }), wire({ id: 'y' })],
+      [wire({ id: 'r3', updatedAtCounter: 11 }), wire({ id: 'z' })]
+    ]
+    for (const order of [
+      ['r3', 'r1', 'r2'],
+      ['r1', 'r2', 'r3'],
+      ['r2', 'r3', 'r1']
+    ]) {
+      const base = fakeBasePort({ pages: pages() })
+      const port = withFeedPrimaryRead(base)
+      const cache = emptyCache()
+
+      const results = await Promise.all(
+        order.map(id => port.get({ id, cache }))
+      )
+
+      expect(results.map(primary => primary!.updatedAtCounter)).toStrictEqual(
+        order.map(id => ({ r1: 7, r2: 9, r3: 11 })[id])
+      )
+      expect(base.queries.map(query => query.checkpoint)).toStrictEqual([
+        undefined,
+        'cp-x',
+        'cp-y'
+      ])
+    }
   })
 
   it('leaves a failed walk to its own caller and lets a waiter retry', async () => {

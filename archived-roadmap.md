@@ -1212,3 +1212,25 @@ pushed back as a create. A re-created Collection is already a feed restart
 today, so the gap is latent now and becomes reachable through the replicated
 Collection tombstones WAS-96 adds (its WAS-174), where a tombstone applied from
 a peer cascades on every replica.
+
+### WS-9: The feed-walk memo only helps rows earlier in the feed than the first walked id
+
+- status: done
+- done: 2026-10-23
+- priority: low
+- labels: feed-primary-read, efficiency, docs
+- acceptance:
+  - [x] Either the memo is reworked so a batch of k conflicting rows costs one
+        walk regardless of arrival order and feed position, or the doc claims at
+        `src/feedPrimaryPort.ts:126-127` and `src/pushWrites.ts:333-334` are
+        corrected to state what is actually guaranteed
+  - [x] A test places ids across several feed pages and asserts the walk count
+        for a batch whose `get` calls arrive out of feed order
+
+Context: `walkFeedFor` returns as soon as it finds its own target, and every
+waiting row loops on `inFlight`. A row whose resource sits past the previous
+walk's stopping point starts its own origin walk, serialized behind the loop, so
+a batch of k conflicting rows can cost on the order of H_k sequential full scans
+rather than one. That is slower than k concurrent unmemoized walks. The existing
+"walks again for an id the memo never saw" test demonstrates the re-walk, and
+both "one walk" tests place every id on one page.

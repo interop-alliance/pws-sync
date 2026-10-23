@@ -337,8 +337,8 @@ export interface PrimaryState extends ClientPrimaryState {
  * The short-lived primary-read memo the rows of ONE push batch share. A
  * resolving `get` implementation may answer from `byId` and MUST record every
  * primary state it resolved on the way there; a feed-walking implementation
- * pages past all of them anyway, so a batch of k conflicts costs one walk
- * instead of k.
+ * pages past all of them anyway, so a batch of k conflicts pages the feed once
+ * instead of k times.
  *
  * `inFlight` is what makes that hold under concurrency: the batch's rows push in
  * parallel, so without it every row would start its own walk before the first
@@ -347,12 +347,21 @@ export interface PrimaryState extends ClientPrimaryState {
  * and re-checks `byId` first. It settles (never rejects) so one row's failed
  * read is not another row's, and is `null` whenever no walk is running.
  *
+ * `checkpoint` is what makes it hold whatever order the rows arrive in: the
+ * feed checkpoint the batch's last walk stopped at, absent until a walk has
+ * read a page. A walk stops once it finds its own resource, so a row whose
+ * resource sits further along misses the memo; it resumes the walk from here
+ * rather than paging from the origin again. A walk that reached the feed's end
+ * leaves the checkpoint on the last page, so the next walk re-reads that page,
+ * where a resource written since would land.
+ *
  * The whole object is created per batch invocation and dropped with it: a memo
  * held across batches would go stale.
  */
 export interface PrimaryReadCache {
   byId: Map<string, PrimaryState | null>
   inFlight: Promise<void> | null
+  checkpoint?: SyncCheckpoint
 }
 
 /**

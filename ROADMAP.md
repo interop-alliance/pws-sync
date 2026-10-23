@@ -109,24 +109,3 @@ discovered-from: WS-17
 Unchanged by WAS-96: its open point 2 keeps two stamp sets per Resource, so
 `/meta` stays independently versioned and the race above stays reachable. The
 "validators differ" rule would compare the nested `meta` stamp under WS-23.
-
-### WS-9: The feed-walk memo only helps rows earlier in the feed than the first walked id
-
-- status: todo
-- priority: low
-- labels: feed-primary-read, efficiency, docs
-- acceptance:
-  - [ ] Either the memo is reworked so a batch of k conflicting rows costs one
-        walk regardless of arrival order and feed position, or the doc claims at
-        `src/feedPrimaryPort.ts:126-127` and `src/pushWrites.ts:333-334` are
-        corrected to state what is actually guaranteed
-  - [ ] A test places ids across several feed pages and asserts the walk count
-        for a batch whose `get` calls arrive out of feed order
-
-Context: `walkFeedFor` returns as soon as it finds its own target, and every
-waiting row loops on `inFlight`. A row whose resource sits past the previous
-walk's stopping point starts its own origin walk, serialized behind the loop, so
-a batch of k conflicting rows can cost on the order of H_k sequential full scans
-rather than one. That is slower than k concurrent unmemoized walks. The existing
-"walks again for an id the memo never saw" test demonstrates the re-walk, and
-both "one walk" tests place every id on one page.
