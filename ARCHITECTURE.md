@@ -199,14 +199,20 @@ numbered so items and reviews can cite them.
    and says so in the CHANGELOG. The forget must take the collection's
    `rx-replication-meta-*` instance with it, or the consumer must change the
    `replicationIdentifier`. A retained checkpoint would resume the re-pull past
-   every row and bring the new replica up empty. Local writes not yet pushed
-   when the app updates are lost with the old replica, which can no longer be
-   opened to drain them. The stamp members are stored as the server sends them,
-   with no boundary guard on length, type, or `meta` completeness. That is the
-   trust `etag`, `createdBy`, `writerId`, and `epoch` get. The schema bounds
-   describe the server and are not enforced here. A consumer that wraps its
-   storage in a validator takes on the consequence that a malformed server
-   document wedges the pull.
+   every row and bring the new replica up empty. The default
+   `replicationIdentifier` is `pws-sync:` followed by the Collection URL, built
+   with was-client's `collectionUrl` so a Space URL missing its trailing slash
+   or an unencoded collection id yields the same identifier as the canonical
+   form, and two apps naming the same Collection agree. RxDB keys the persisted
+   checkpoint by this identifier, so changing its shape orphans every replica's
+   checkpoint just as a schema change does. Local writes not yet pushed when the
+   app updates are lost with the old replica, which can no longer be opened to
+   drain them. The stamp members are stored as the server sends them, with no
+   boundary guard on length, type, or `meta` completeness. That is the trust
+   `etag`, `createdBy`, `writerId`, and `epoch` get. The schema bounds describe
+   the server and are not enforced here. A consumer that wraps its storage in a
+   validator takes on the consequence that a malformed server document wedges
+   the pull.
 8. **The writer id is never an identity.** Unkeyed, clearable, unrecoverable,
    derived from no secret. The key prefix is required (the package mints no
    default key two apps could collide on) and the storage is an injected port. A
@@ -392,7 +398,9 @@ numbered so items and reviews can cite them.
     is the same forget invariant 7 (the replica schema is stored state)
     describes for a schema change.
 20. **A controller is bound to one port and one server.** `createSyncController`
-    takes one `port` carrying one `WasClient`, one Space, and one capability
+    takes one `port` carrying one `WasClient`, one Space (named by its absolute
+    URL, `spaceUrl`, the one value a consumer holds whether it built the URL
+    from a base server URL and an id or read it off a grant), and one capability
     set, and every replication it registers runs against that server for the
     life of the instance. The spec settles that a client replicates against one
     server at a time and that every capability is host-bound, so a second
@@ -473,6 +481,15 @@ the byoe-ecosystem layer map instead.
 
 ## Glossary
 
+- **Space URL** -- the remote Space's absolute URL as the server or a capability
+  names it, with its trailing slash (`spaceUrl` on the controller port and on
+  was-client's `createWasSyncPort`). It is the one value a consumer holds
+  whether it built the URL from a base server URL and a Space id
+  (`was.space(id).url`) or read it off a grant (`spaceUrlOf(zcap)`). The
+  Collection URL is the Space URL followed by the percent-encoded collection id
+  and a slash, and was-client's path builders own both rules. Avoid: space id,
+  base URL, server URL (these name the pieces a Space URL is built from, not the
+  Space).
 - **Driver** -- this package: the RxDB-side implementation of WAS replication.
   Contrast the **engine** (`@interop/wallet-core/sync`), the replica-less
   implementation a mobile wallet drives. Avoid: adapter, sync layer.

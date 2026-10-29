@@ -57,7 +57,7 @@
     "@eslint/js": "^10.0.1",
     "@interop/ed25519-verification-key": "^8.2.2",
     "@interop/logger": "^0.2.0",
-    "@interop/was-client": "^0.98.0",
+    "@interop/was-client": "^0.100.1",
     "@playwright/test": "^1.60.0",
     "@types/node": "^26.0.1",
     "@vitest/coverage-v8": "^4.1.7",
@@ -74,7 +74,7 @@
     "was-teaching-server": "^0.42.2"
   },
   "peerDependencies": {
-    "@interop/was-client": ">=0.90.2 <1.0.0",
+    "@interop/was-client": ">=0.100.1 <1.0.0",
     "rxdb": "^17.0.0"
   },
   "peerDependenciesMeta": {

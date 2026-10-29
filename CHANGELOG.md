@@ -1,6 +1,23 @@
 # @interop/was-sync Changelog
 
-## 0.10.2 - TBD
+## 0.11.0 - TBD
+
+### Changed
+
+- Breaking: `createSyncController`'s `port` takes `spaceUrl`, the remote Space's
+  absolute URL, in place of `spaceId` and `baseUrl`, and forwards it to
+  `createWasSyncPort` as `spaceUrl`. A consumer holding a base server URL and a
+  Space id builds the URL with `was.space(id).url`; one holding a grant reads it
+  with `spaceUrlOf(zcap)`.
+- Breaking: the default `replicationIdentifier` is now `pws-sync:` followed by
+  the Collection URL (`${spaceUrl}${collectionId}/`, built with was-client's
+  `collectionUrl`, so a non-canonical Space URL or an unencoded collection id
+  yields the same identifier as the canonical form). Every replica on the old
+  default (`was-sync:${baseUrl}:${spaceId}:${id}`) loses its persisted
+  checkpoint and re-pulls its Collection from the beginning; a consumer that
+  passes its own `replicationIdentifier` is unaffected.
+- `@interop/was-client` peer range is `>=0.100.1 <1.0.0`, the release whose
+  client is built from `baseServerUrl` and whose sync port takes `spaceUrl`.
 
 ### Fixed
 

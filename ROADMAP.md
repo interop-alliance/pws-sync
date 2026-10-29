@@ -1,6 +1,6 @@
 # WAS Sync Roadmap (open items)
 
-nextAvailableId: 30
+nextAvailableId: 31
 
 Status as of 2026-09-05. Uses the formalized item structure shared across the
 `@interop/*` repos.

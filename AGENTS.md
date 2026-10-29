@@ -276,6 +276,6 @@ rather than memory; check with the user before editing anything in them.
 - [wallet-core](https://github.com/interop-alliance/wallet-core) -- the
   replica-less change engine (`/sync`) and the contacts head-conflict resolver a
   wallet injects here.
-- [wallet-attached-storage-spec](https://github.com/w3c-ccg/wallet-attached-storage-spec)
+- [portable-web-spaces-spec](https://github.com/w3c-ccg/portable-web-spaces-spec)
   -- the `changes` query profile, conditional writes, and tombstones this driver
   replicates over.

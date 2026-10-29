@@ -1267,3 +1267,52 @@ draws a `412` whose re-read primary predates the assumed one, and rule 2 of the
 default resolver would then adopt the older `custom`. That is a consumer
 sequencing concern more than a driver defect, but the driver's assumption should
 be stated.
+
+### WS-30: The controller port locates the remote Space by its URL, not by `baseUrl` plus `spaceId`
+
+- status: done (2026-10-29)
+- priority: high
+- labels: port, breaking, cross-repo
+- discovered-from: WCL-140 (was-client, 2026-10-28); scoped 2026-10-29 to
+  was-client decision 0003
+- blocked-by: WCL-141 (was-client; landed 2026-10-29, unreleased: the release
+  whose `createWasSyncPort` takes `spaceUrl` and whose client is built from
+  `baseServerUrl`)
+- touches:
+  - was-react: WR-98 (its `syncController.ts` fills this port)
+  - freewallet: FW-694 (fills this port for the wallet's own collections)
+  - was-client: the `createWasSyncPort({ spaceUrl })` seam this port forwards
+    to; shipped there, nothing to file
+- acceptance:
+  - [x] `createSyncController`'s `port` takes `spaceUrl` (the remote Space's
+        absolute URL, as the server or a capability names it) in place of
+        `spaceId` and `baseUrl`, and forwards it to `createWasSyncPort` as
+        `spaceUrl`
+  - [x] The default `replicationIdentifier` is derived from the Space URL and
+        the collection id; the exact string is settled with the maintainer
+        before it is coded (settled 2026-10-29 as `pws-sync:` followed by the
+        Collection URL, `${spaceUrl}${collectionId}/` as was-client's
+        `collectionUrl` builds it, so two apps naming the same Collection
+        agree). Its JSDoc keeps the warning that changing the shape orphans
+        every replica's persisted checkpoint, and the CHANGELOG says this
+        release does so
+  - [x] `@interop/was-client` is bumped to the release that ships
+        `baseServerUrl` (0.100.1 or later) in `devDependencies` and the peer
+        range; `test/node/controller.test.ts` and
+        `test/node/replication.integration.test.ts` build their clients from
+        `baseServerUrl` and their ports from `spaceUrl`, and stay green
+  - [x] README.md's port example and ARCHITECTURE.md's port description name
+        `spaceUrl`; CHANGELOG.md records the breaking port change
+
+The controller's port still names the remote Space the 0.99 way, as a server
+`baseUrl` plus a `spaceId`, and reads the client's own `baseUrl` for the default
+replication identifier. was-client 0.100.0 removed `was.baseUrl` and made every
+sync-seam option a `spaceUrl`; was-client decision 0003 (2026-10-29) then fixed
+the server layout under a base server URL and brought `space(id)` back, but left
+the Space-scoped seams on `spaceUrl`, since a Space handle's URL is the one
+value every caller holds regardless of how it was reached (built from a base,
+read off a grant's chain root, or opened on a single fixed Space with no base at
+all). This port therefore takes the Space URL. A consumer that holds a base and
+an id builds the URL with the client (`was.space(id).url`); a consumer holding
+grants reads it with `spaceUrlOf(zcap)`. Nothing in this package needs the base
+itself.

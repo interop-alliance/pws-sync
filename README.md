@@ -155,8 +155,7 @@ import { createSyncController } from '@interop/was-sync/rxdb'
 const controller = createSyncController({
   port: {
     wasClient,
-    spaceId,
-    baseUrl,
+    spaceUrl, // the Space's absolute URL, e.g. `wasClient.space(id).url`
     collections: [{ key: 'contacts', id: 'contacts' }],
     rxCollection: key => database.collections[key]
   },

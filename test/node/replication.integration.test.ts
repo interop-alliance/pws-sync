@@ -23,7 +23,6 @@ import { openTempBackend, startTestServer } from 'was-teaching-server/testing'
 import { Ed25519VerificationKey } from '@interop/ed25519-verification-key'
 import { captureLogger } from '@interop/logger'
 import { WasClient } from '@interop/was-client'
-import { spacesUrl } from '@interop/was-client/paths'
 import {
   createWasSyncPort,
   deriveSpaceId,
@@ -51,7 +50,7 @@ const SEED = new Uint8Array(32).map((_, index) => (index * 31 + 7) & 0xff)
 
 let server: Awaited<ReturnType<typeof startTestServer>>
 let was: WasClient
-let spaceId: string
+let spaceUrl: string
 let controllerDid: string
 let db: RxDatabase | undefined
 let collectionSerial = 0
@@ -59,8 +58,7 @@ let collectionSerial = 0
 beforeAll(async () => {
   // The server owns the temp backend, so closing it removes the data dir.
   // Zcap invocation targets embed the port, so the client is built from the
-  // `serverUrl` the boot returns (the server root; the client takes its Spaces
-  // Repository URL beneath it).
+  // `serverUrl` the boot returns (the base server URL).
   server = await startTestServer({
     backend: await openTempBackend({
       prefix: 'was-sync-integration-',
@@ -72,10 +70,10 @@ beforeAll(async () => {
   const keyPair = await Ed25519VerificationKey.generate({ seed: SEED })
   controllerDid = `did:key:${keyPair.fingerprint()}`
   was = WasClient.fromSigner({
-    serverUrl: spacesUrl({ baseUrl: serverUrl }),
+    baseServerUrl: serverUrl,
     signer: keyPair.didKeySigner()
   })
-  spaceId = deriveSpaceId(controllerDid)
+  spaceUrl = was.space(deriveSpaceId(controllerDid)).url
 })
 
 afterAll(async () => {
@@ -102,12 +100,12 @@ async function openServerCollection(): Promise<{
   const collectionId = `synced-${collectionSerial}`
   await ensureSpaceAndCollection({
     was,
-    spaceId,
+    spaceUrl,
     controllerDid,
     collectionId,
     encryption: 'plaintext'
   })
-  const build = () => createWasSyncPort({ was, spaceId, collectionId })
+  const build = () => createWasSyncPort({ was, spaceUrl, collectionId })
   return { port: build(), observer: build() }
 }
 
@@ -169,7 +167,7 @@ async function pullFreshReplica({
       rxCollection: synced,
       wasPort: createWasSyncPort({
         was,
-        spaceId,
+        spaceUrl,
         collectionId: `synced-${collectionSerial}`
       }),
       replicationIdentifier,
@@ -496,7 +494,7 @@ describe('WAS replication (RxDB + live was-teaching-server)', () => {
     const replicaB = await openCollection()
     const portB = createWasSyncPort({
       was,
-      spaceId,
+      spaceUrl,
       collectionId: `synced-${collectionSerial}`
     })
     const deletes: string[] = []
@@ -646,15 +644,15 @@ describe('WAS replication (RxDB + live was-teaching-server)', () => {
 
       // Delete the Collection and re-create it under the same id. The new
       // life gets an observer of its own.
-      await was.space(spaceId).collection(collectionId).delete()
+      await was.spaceAt(spaceUrl).collection(collectionId).delete()
       await ensureSpaceAndCollection({
         was,
-        spaceId,
+        spaceUrl,
         controllerDid,
         collectionId,
         encryption: 'plaintext'
       })
-      const newObserver = createWasSyncPort({ was, spaceId, collectionId })
+      const newObserver = createWasSyncPort({ was, spaceUrl, collectionId })
       const newBody = {
         step: 'new-1',
         updatedAt: '2026-01-01T00:00:02Z',

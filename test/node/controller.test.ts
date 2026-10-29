@@ -123,7 +123,7 @@ function recordingWasClient(): {
   }> = []
   let changesCalls = 0
   const client = {
-    space: () => ({
+    spaceAt: () => ({
       collection: (_id: string, options: { capability?: unknown }) => {
         collectionCapabilities.push(options.capability)
         return {
@@ -169,8 +169,14 @@ function handedPort(callIndex = 0): WasSyncPort {
  * I/O-free, and nothing here is ever called.
  */
 const wasClient = {
-  space: () => ({ collection: () => ({}) })
+  spaceAt: () => ({ collection: () => ({}) })
 } as unknown as WasClient
+
+/**
+ * The canonical Space URL every port below names; the one test that exercises
+ * a non-canonical form keeps its own literal.
+ */
+const spaceUrl = 'https://was.example/space/space-1/'
 
 function fakeRxCollection() {
   return { $: stream<unknown>() }
@@ -201,8 +207,7 @@ describe('createSyncController lifecycle', () => {
     const controller = createSyncController({
       port: {
         wasClient,
-        spaceId: 'space-1',
-        baseUrl: 'https://was.example',
+        spaceUrl,
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: rxCollection as never
       },
@@ -228,8 +233,7 @@ describe('createSyncController lifecycle', () => {
     const controller = createSyncController({
       port: {
         wasClient,
-        spaceId: 'space-1',
-        baseUrl: 'https://was.example',
+        spaceUrl,
         // Two registry entries may share one WAS id, so the callback carries
         // both and neither binding has to map.
         collections: [{ key: 'wallet-notes', id: 'notes' }],
@@ -263,8 +267,7 @@ describe('createSyncController lifecycle', () => {
     const controller = createSyncController({
       port: {
         wasClient,
-        spaceId: 'space-1',
-        baseUrl: 'https://was.example',
+        spaceUrl,
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never
       },
@@ -292,8 +295,7 @@ describe('createSyncController lifecycle', () => {
     const controller = createSyncController({
       port: {
         wasClient,
-        spaceId: 'space-1',
-        baseUrl: 'https://was.example',
+        spaceUrl,
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never
       },
@@ -316,8 +318,7 @@ describe('createSyncController lifecycle', () => {
     const controller = createSyncController({
       port: {
         wasClient,
-        spaceId: 'space-1',
-        baseUrl: 'https://was.example',
+        spaceUrl,
         collections: [
           {
             key: 'notes',
@@ -354,8 +355,7 @@ describe('createSyncController lifecycle', () => {
     const controller = createSyncController({
       port: {
         wasClient,
-        spaceId: 'space-1',
-        baseUrl: 'https://was.example',
+        spaceUrl,
         collections: [
           { key: 'notes', id: 'notes' },
           { key: 'posts', id: 'posts' }
@@ -370,14 +370,13 @@ describe('createSyncController lifecycle', () => {
     await controller.stop()
   })
 
-  it('builds a replication identifier carrying the server URL and the Space id', async () => {
+  it('builds a replication identifier carrying the Collection URL', async () => {
     const cancelOrder: string[] = []
     createWasReplication.mockReturnValue(fakeReplication(cancelOrder, 'notes'))
     const controller = createSyncController({
       port: {
         wasClient,
-        spaceId: 'space-1',
-        baseUrl: 'https://was.example',
+        spaceUrl,
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never
       },
@@ -389,7 +388,32 @@ describe('createSyncController lifecycle', () => {
     // RxDB persists checkpoints under this id inside the database, so an
     // identifier with no Space in it would resume another Space's checkpoint.
     expect(createWasReplication.mock.calls[0]?.[0]).toMatchObject({
-      replicationIdentifier: 'was-sync:https://was.example:space-1:notes'
+      replicationIdentifier: 'pws-sync:https://was.example/space/space-1/notes/'
+    })
+    await controller.stop()
+  })
+
+  it('derives the same identifier from a non-canonical Space URL and an unencoded id', async () => {
+    const cancelOrder: string[] = []
+    createWasReplication.mockReturnValue(fakeReplication(cancelOrder, 'notes'))
+    const controller = createSyncController({
+      port: {
+        wasClient,
+        // No trailing slash, and an id with a character the URL encodes.
+        spaceUrl: 'https://was.example/space/space-1',
+        collections: [{ key: 'notes', id: 'my notes' }],
+        rxCollection: (() => fakeRxCollection()) as never
+      },
+      onStatus: () => {},
+      pollMs: 0
+    })
+    await controller.start()
+
+    // A consumer that later switches to the canonical Space URL must keep its
+    // checkpoint, so the identifier is the canonical Collection URL either way.
+    expect(createWasReplication.mock.calls[0]?.[0]).toMatchObject({
+      replicationIdentifier:
+        'pws-sync:https://was.example/space/space-1/my%20notes/'
     })
     await controller.stop()
   })
@@ -400,8 +424,7 @@ describe('createSyncController lifecycle', () => {
     const controller = createSyncController({
       port: {
         wasClient,
-        spaceId: 'space-1',
-        baseUrl: 'https://was.example',
+        spaceUrl,
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never,
         replicationIdentifier: ({ collectionId }) => `custom:${collectionId}`
@@ -425,8 +448,7 @@ describe('createSyncController lifecycle', () => {
       createSyncController({
         port: {
           wasClient,
-          spaceId: 'space-1',
-          baseUrl: 'https://was.example',
+          spaceUrl,
           collections: [
             { key: 'notes', id: 'notes' },
             { key: 'tasks', id: 'tasks' }
@@ -467,8 +489,7 @@ describe('createSyncController failed bring-up', () => {
     const controller = createSyncController({
       port: {
         wasClient,
-        spaceId: 'space-1',
-        baseUrl: 'https://was.example',
+        spaceUrl,
         collections: [
           { key: 'notes', id: 'notes' },
           { key: 'posts', id: 'posts' }
@@ -500,8 +521,7 @@ describe('createSyncController failed bring-up', () => {
     const controller = createSyncController({
       port: {
         wasClient,
-        spaceId: 'space-1',
-        baseUrl: 'https://was.example',
+        spaceUrl,
         collections: [
           { key: 'notes', id: 'notes' },
           { key: 'posts', id: 'posts' }
@@ -525,8 +545,7 @@ describe('createSyncController failed bring-up', () => {
     const controller = createSyncController({
       port: {
         wasClient,
-        spaceId: 'space-1',
-        baseUrl: 'https://was.example',
+        spaceUrl,
         collections: [
           { key: 'notes', id: 'notes' },
           { key: 'posts', id: 'posts' }
@@ -556,8 +575,7 @@ describe('createSyncController error escalation', () => {
     const controller = createSyncController({
       port: {
         wasClient,
-        spaceId: 'space-1',
-        baseUrl: 'https://was.example',
+        spaceUrl,
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never
       },
@@ -618,8 +636,7 @@ describe('createSyncController remote change', () => {
     const controller = createSyncController({
       port: {
         wasClient,
-        spaceId: 'space-1',
-        baseUrl: 'https://was.example',
+        spaceUrl,
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => collection) as never
       },
@@ -653,8 +670,7 @@ describe('createSyncController sync port', () => {
     return createSyncController({
       port: {
         wasClient: client,
-        spaceId: 'space-1',
-        baseUrl: 'https://was.example',
+        spaceUrl,
         collections: [
           {
             key: 'notes',
@@ -750,8 +766,7 @@ describe('createSyncController polling and reachability', () => {
     const controller = createSyncController({
       port: {
         wasClient,
-        spaceId: 'space-1',
-        baseUrl: 'https://was.example',
+        spaceUrl,
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never
       },
@@ -791,8 +806,7 @@ describe('createSyncController polling and reachability', () => {
     const controller = createSyncController({
       port: {
         wasClient,
-        spaceId: 'space-1',
-        baseUrl: 'https://was.example',
+        spaceUrl,
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never
       },
@@ -815,8 +829,7 @@ describe('createSyncController stop', () => {
     const controller = createSyncController({
       port: {
         wasClient,
-        spaceId: 'space-1',
-        baseUrl: 'https://was.example',
+        spaceUrl,
         collections: [
           { key: 'notes', id: 'notes' },
           { key: 'posts', id: 'posts' }
@@ -853,8 +866,7 @@ describe('createSyncController stop', () => {
     const controller = createSyncController({
       port: {
         wasClient,
-        spaceId: 'space-1',
-        baseUrl: 'https://was.example',
+        spaceUrl,
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never
       },

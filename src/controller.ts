@@ -32,6 +32,7 @@
 import type { RxChangeEvent, RxCollection } from 'rxdb/plugins/core'
 import type { RxReplicationState } from 'rxdb/plugins/replication'
 import type { IZcap, WasClient } from '@interop/was-client'
+import { collectionUrl } from '@interop/was-client/paths'
 import {
   createWasSyncPort,
   isSyncAuthError,
@@ -141,13 +142,20 @@ export function isAuthError(err: unknown): boolean {
  * Builds a controller over one session's collections.
  *
  * The port is inlined at the signature because it is used once. Its members:
- * `wasClient` and `spaceId` locate the remote Space; `baseUrl` is the server
- * root (the client's own `baseUrl`), read only to build the default
- * `replicationIdentifier`, so changing its shape orphans every replica's
- * persisted checkpoint; each `collections` entry names a LOGICAL key, the WAS
- * collection id, and optionally the delegated capability every request for
- * that collection invokes; `rxCollection` resolves the local end by logical
- * key.
+ * `wasClient` and `spaceUrl` locate the remote Space. `spaceUrl` is the
+ * Space's absolute URL as the server or a capability names it. A consumer
+ * holding a base server URL and a Space id builds it with `was.space(id).url`.
+ * One holding a grant reads it with `spaceUrlOf(zcap)`.
+ *
+ * The default `replicationIdentifier` is `pws-sync:` followed by the Collection
+ * URL from was-client's `collectionUrl`. That canonicalizes a Space URL missing
+ * its trailing slash and a collection id that needs percent-encoding, so two
+ * apps naming the same Collection agree. Changing its shape orphans every
+ * replica's persisted checkpoint.
+ *
+ * Each `collections` entry names a LOGICAL key, the WAS collection id, and
+ * optionally the delegated capability every request for that collection
+ * invokes. `rxCollection` resolves the local end by logical key.
  *
  * The two port flags are deployment properties rather than app preferences.
  * `feedPrimaryRead` resolves the 412 conflict re-read from the changes-feed body
@@ -198,8 +206,7 @@ export function createSyncController({
 }: {
   port: {
     wasClient: WasClient
-    spaceId: string
-    baseUrl: string
+    spaceUrl: string
     collections: Array<{ key: string; id: string; capability?: IZcap }>
     rxCollection: (key: string) => RxCollection<SyncedDoc>
     replicationIdentifier?: (input: { collectionId: string }) => string
@@ -227,7 +234,7 @@ export function createSyncController({
   const identifierFor =
     port.replicationIdentifier ??
     (({ collectionId }: { collectionId: string }) =>
-      `was-sync:${port.baseUrl}:${port.spaceId}:${collectionId}`)
+      `pws-sync:${collectionUrl({ spaceUrl: port.spaceUrl, collectionId })}`)
 
   let queue: Promise<void> = Promise.resolve()
   let started = false
@@ -306,7 +313,7 @@ export function createSyncController({
         // fails to compile here rather than inside a push or pull cycle.
         const basePort: WasSyncPort = createWasSyncPort({
           was: port.wasClient,
-          spaceId: port.spaceId,
+          spaceUrl: port.spaceUrl,
           collectionId: id,
           ...(capability !== undefined && { capability }),
           ...(port.mapAuthErrors !== undefined && {
