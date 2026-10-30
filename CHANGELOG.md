@@ -1,5 +1,20 @@
 # @interop/pws-sync Changelog
 
+## 0.13.0 - TBD
+
+### Changed
+
+- `createSyncController`'s `port.spaceUrl` is now optional. When absent, the
+  controller reads the client's own `spaceUrl`, which a client built by
+  `PwsClient.forSpace` carries. Not breaking: a port that passes `spaceUrl`
+  works as before and gets the same default `replicationIdentifier`.
+- A port naming no Space (no `spaceUrl` and a client built from a base server
+  URL) is refused at construction, with an error naming both ways to supply it.
+- A `spaceUrl` that disagrees with the client's own (compared in canonical form)
+  is refused at construction rather than silently preferred.
+- A malformed `spaceUrl` is refused at construction with pws-client's
+  `ValidationError`. It used to fail inside `start()`.
+
 ## 0.12.0 - 2026-10-30
 
 ### Changed

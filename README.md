@@ -155,7 +155,9 @@ import { createSyncController } from '@interop/pws-sync/rxdb'
 const controller = createSyncController({
   port: {
     wasClient,
-    spaceUrl, // the Space's absolute URL, e.g. `wasClient.space(id).url`
+    // The Space's absolute URL, e.g. `wasClient.space(id).url`. Optional for a
+    // client built with `PwsClient.forSpace`, which carries its own.
+    spaceUrl,
     collections: [{ key: 'contacts', id: 'contacts' }],
     rxCollection: key => database.collections[key]
   },

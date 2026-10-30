@@ -32,7 +32,7 @@
 import type { RxChangeEvent, RxCollection } from 'rxdb/plugins/core'
 import type { RxReplicationState } from 'rxdb/plugins/replication'
 import type { IZcap, PwsClient } from '@interop/pws-client'
-import { collectionUrl } from '@interop/pws-client/paths'
+import { canonicalSpaceUrl, collectionUrl } from '@interop/pws-client/paths'
 import {
   createPwsSyncPort,
   isSyncAuthError,
@@ -139,13 +139,61 @@ export function isAuthError(err: unknown): boolean {
 }
 
 /**
+ * Resolves the Space a port names. An explicit `spaceUrl` wins, and a client
+ * built by `PwsClient.forSpace` supplies its own when none is passed. A port
+ * naming neither, or naming two that disagree, is refused. Both values are
+ * compared in canonical form (pws-client's `canonicalSpaceUrl`), the form the
+ * client already holds its own in.
+ *
+ * @param port {object}
+ * @param port.wasClient {PwsClient}
+ * @param [port.spaceUrl] {string}
+ * @returns {string}   the Space URL in canonical form
+ * @throws {Error}   when the port names no Space, or two different ones
+ * @throws {ValidationError}   pws-client's, when `spaceUrl` is not a Space URL
+ */
+function resolveSpaceUrl({
+  wasClient,
+  spaceUrl
+}: {
+  wasClient: PwsClient
+  spaceUrl?: string
+}): string {
+  const own = wasClient.spaceUrl
+  if (spaceUrl === undefined) {
+    if (own === undefined) {
+      throw new Error(
+        'createSyncController: the port names no Space. Pass `spaceUrl` ' +
+          'beside `wasClient`, or build the client with ' +
+          '`PwsClient.forSpace({ spaceUrl })` so it carries its own.'
+      )
+    }
+    return own
+  }
+  const explicit = canonicalSpaceUrl(spaceUrl)
+  if (own !== undefined && explicit !== own) {
+    throw new Error(
+      `createSyncController: the port's \`spaceUrl\` (${spaceUrl}) disagrees ` +
+        `with the client's own (${own}). Pass one Space, or drop \`spaceUrl\` ` +
+        "to use the client's."
+    )
+  }
+  return explicit
+}
+
+/**
  * Builds a controller over one session's collections.
  *
  * The port is inlined at the signature because it is used once. Its members:
  * `wasClient` and `spaceUrl` locate the remote Space. `spaceUrl` is the
- * Space's absolute URL as the server or a capability names it. A consumer
- * holding a base server URL and a Space id builds it with `pws.space(id).url`.
- * One holding a grant reads it with `spaceUrlOf(zcap)`.
+ * Space's absolute URL as the server or a capability names it. It defaults to
+ * the client's own `spaceUrl`, which a client built by `PwsClient.forSpace`
+ * carries, so such a consumer hands over the client alone. A client built from
+ * a base server URL names no single Space, so `spaceUrl` stays required beside
+ * it. A consumer holding a Space id builds it with `pws.space(id).url`, and one
+ * holding a grant reads it with `spaceUrlOf(zcap)`. A port naming no Space, or
+ * two that disagree, is refused at construction by `resolveSpaceUrl`, as is a
+ * malformed `spaceUrl`.
  *
  * The default `replicationIdentifier` is `pws-sync:` followed by the Collection
  * URL from pws-client's `collectionUrl`. That canonicalizes a Space URL missing
@@ -206,7 +254,7 @@ export function createSyncController({
 }: {
   port: {
     wasClient: PwsClient
-    spaceUrl: string
+    spaceUrl?: string
     collections: Array<{ key: string; id: string; capability?: IZcap }>
     rxCollection: (key: string) => RxCollection<SyncedDoc>
     replicationIdentifier?: (input: { collectionId: string }) => string
@@ -231,10 +279,11 @@ export function createSyncController({
   const capabilityScoped = port.collections.some(
     entry => entry.capability !== undefined
   )
+  const spaceUrl = resolveSpaceUrl(port)
   const identifierFor =
     port.replicationIdentifier ??
     (({ collectionId }: { collectionId: string }) =>
-      `pws-sync:${collectionUrl({ spaceUrl: port.spaceUrl, collectionId })}`)
+      `pws-sync:${collectionUrl({ spaceUrl, collectionId })}`)
 
   let queue: Promise<void> = Promise.resolve()
   let started = false
@@ -313,7 +362,7 @@ export function createSyncController({
         // fails to compile here rather than inside a push or pull cycle.
         const basePort: WasSyncPort = createPwsSyncPort({
           pws: port.wasClient,
-          spaceUrl: port.spaceUrl,
+          spaceUrl,
           collectionId: id,
           ...(capability !== undefined && { capability }),
           ...(port.mapAuthErrors !== undefined && {

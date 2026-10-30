@@ -7,9 +7,9 @@
  * registration before subscription, the both-keys status callback, the
  * no-`synced`-before-a-cycle rule, the uncovered-collection skip, the auth
  * escalation, the remote-change subscription, the no-op reSync on a stopping
- * instance, the default replication identifier, the sync port each replication
- * is handed, the poll rate and online unsubscription, and the stop that
- * resolves after every cancel.
+ * instance, the default replication identifier, the Space URL defaulting and
+ * its refusals, the sync port each replication is handed, the poll rate and
+ * online unsubscription, and the stop that resolves after every cancel.
  *
  * `createWasReplication` is mocked, so no RxDB database is opened here: the
  * subject is the lifecycle around the replication states, not the states
@@ -104,6 +104,16 @@ function throwingSubscribeReplication(cancelOrder: string[], name: string) {
 }
 
 /**
+ * One direct request a recording client saw.
+ */
+type RecordedRequest = {
+  capability?: unknown
+  method: string
+  path: string
+  url?: string
+}
+
+/**
  * A PWS client that records what each sync-port call hands it: the capability
  * on the collection handle the feed reads through, the feed reads themselves,
  * and every direct request. Every request rejects with a `403`, so a test can
@@ -113,14 +123,10 @@ function recordingPwsClient(): {
   client: PwsClient
   collectionCapabilities: unknown[]
   changesCalls: () => number
-  requests: Array<{ capability?: unknown; method: string; path: string }>
+  requests: RecordedRequest[]
 } {
   const collectionCapabilities: unknown[] = []
-  const requests: Array<{
-    capability?: unknown
-    method: string
-    path: string
-  }> = []
+  const requests: RecordedRequest[] = []
   let changesCalls = 0
   const client = {
     spaceAt: () => ({
@@ -137,11 +143,7 @@ function recordingPwsClient(): {
         }
       }
     }),
-    request: async (request: {
-      capability?: unknown
-      method: string
-      path: string
-    }) => {
+    request: async (request: RecordedRequest) => {
       requests.push(request)
       throw Object.assign(new Error('forbidden'), { status: 403 })
     }
@@ -177,6 +179,12 @@ const wasClient = {
  * a non-canonical form keeps its own literal.
  */
 const spaceUrl = 'https://was.example/space/space-1/'
+
+/**
+ * `wasClient` as `PwsClient.forSpace` would build it: carrying its own Space
+ * URL, in canonical form.
+ */
+const forSpaceClient = { ...wasClient, spaceUrl } as unknown as PwsClient
 
 function fakeRxCollection() {
   return { $: stream<unknown>() }
@@ -414,6 +422,74 @@ describe('createSyncController lifecycle', () => {
     expect(createWasReplication.mock.calls[0]?.[0]).toMatchObject({
       replicationIdentifier:
         'pws-sync:https://was.example/space/space-1/my%20notes/'
+    })
+    await controller.stop()
+  })
+
+  /**
+   * A one-collection port over `wasClient`, with the Space named as the test
+   * says.
+   */
+  function buildPort(port: { wasClient?: PwsClient; spaceUrl?: string }) {
+    return createSyncController({
+      port: {
+        wasClient,
+        collections: [{ key: 'notes', id: 'notes' }],
+        rxCollection: (() => fakeRxCollection()) as never,
+        ...port
+      },
+      onStatus: () => {},
+      pollMs: 0
+    })
+  }
+
+  it("defaults the Space URL to the client's own when the port names none", async () => {
+    createWasReplication.mockReturnValue(fakeReplication([], 'notes'))
+    const controller = buildPort({ wasClient: forSpaceClient })
+    await controller.start()
+
+    // The same identifier the explicit-`spaceUrl` port builds, so a consumer
+    // that drops `spaceUrl` in favor of the client's keeps its checkpoint.
+    expect(createWasReplication.mock.calls[0]?.[0]).toMatchObject({
+      replicationIdentifier: 'pws-sync:https://was.example/space/space-1/notes/'
+    })
+    await controller.stop()
+  })
+
+  it('refuses at construction a port that names no Space', () => {
+    // A client built from a base server URL carries no `spaceUrl`.
+    expect(() => buildPort({})).toThrow(/spaceUrl[\s\S]*forSpace/)
+    expect(createWasReplication).not.toHaveBeenCalled()
+  })
+
+  it("refuses at construction a spaceUrl that disagrees with the client's own", () => {
+    expect(() =>
+      buildPort({
+        wasClient: forSpaceClient,
+        spaceUrl: 'https://was.example/space/space-2/'
+      })
+    ).toThrow(/disagrees/)
+    expect(createWasReplication).not.toHaveBeenCalled()
+  })
+
+  it('refuses at construction a spaceUrl that is not a Space URL', () => {
+    expect(() => buildPort({ spaceUrl: 'not a url' })).toThrow(
+      expect.objectContaining({ name: 'ValidationError' })
+    )
+    expect(createWasReplication).not.toHaveBeenCalled()
+  })
+
+  it("accepts a spaceUrl that differs from the client's own only by the trailing slash", async () => {
+    createWasReplication.mockReturnValue(fakeReplication([], 'notes'))
+    // The client holds its own in canonical form; the comparison is in
+    // canonical form too, so this names the same Space.
+    const controller = buildPort({
+      wasClient: forSpaceClient,
+      spaceUrl: 'https://was.example/space/space-1'
+    })
+    await controller.start()
+    expect(createWasReplication.mock.calls[0]?.[0]).toMatchObject({
+      replicationIdentifier: 'pws-sync:https://was.example/space/space-1/notes/'
     })
     await controller.stop()
   })
@@ -664,13 +740,17 @@ describe('createSyncController sync port', () => {
       capability?: unknown
       feedPrimaryRead?: boolean
       mapAuthErrors?: boolean
+      // `null` leaves the Space to the client's own.
+      spaceUrl?: string | null
     } = {}
   ) {
     createWasReplication.mockImplementation(() => fakeReplication([], 'notes'))
     return createSyncController({
       port: {
         wasClient: client,
-        spaceUrl,
+        ...(options.spaceUrl !== null && {
+          spaceUrl: options.spaceUrl ?? spaceUrl
+        }),
         collections: [
           {
             key: 'notes',
@@ -730,6 +810,24 @@ describe('createSyncController sync port', () => {
     expect(pws.collectionCapabilities).toEqual([capability])
     expect(pws.requests).toHaveLength(1)
     expect(pws.requests[0]!.capability).toBe(capability)
+    await controller.stop()
+  })
+
+  it("hands a port for the client's own Space when the port names none", async () => {
+    const pws = recordingPwsClient()
+    const controller = build(
+      { ...pws.client, spaceUrl } as unknown as PwsClient,
+      { spaceUrl: null }
+    )
+    await controller.start()
+
+    await expect(
+      handedPort().putContent({ id: 'r1', data: { a: 1 } })
+    ).rejects.toThrow()
+    expect(pws.requests).toHaveLength(1)
+    expect(pws.requests[0]!.url).toBe(
+      'https://was.example/space/space-1/notes/r1'
+    )
     await controller.stop()
   })
 

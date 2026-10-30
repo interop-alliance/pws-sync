@@ -54,41 +54,6 @@ names that client raises.
 
 ---
 
-### WS-31: Default the port's `spaceUrl` to the client's own
-
-- status: todo
-- priority: low
-- labels: api, port, was-react
-- touches:
-  - pws-client (`createPwsSyncPort` takes the same `spaceUrl` beside `pws`; the
-    same default applies there)
-  - was-react (`SyncController` passes `remoteStore.spaceUrl` beside
-    `remoteStore.was`; once the default lands, `WasRemoteStore.spaceUrl` can
-    read `was.spaceUrl` instead of storing a second copy)
-- acceptance:
-  - [ ] `createSyncController`'s port accepts `spaceUrl` as optional; when
-        absent, it reads `wasClient.spaceUrl` (set on a client built by
-        `PwsClient.forSpace`)
-  - [ ] A port with neither (`spaceUrl` absent and a client built from a base
-        server URL) is refused at construction with an error naming both ways to
-        supply the Space
-  - [ ] A `spaceUrl` passed beside a `forSpace` client that disagrees with
-        `wasClient.spaceUrl` is refused rather than silently preferred
-  - [ ] The replication identifier and the per-collection port are built from
-        the resolved value, so a consumer passing only the client gets the same
-        identifier it gets today
-  - [ ] Tests cover the three cases above; ARCHITECTURE.md's port description
-        and the `createSyncController` header name the default
-
-Context: since pws-client 0.100 a grants-only consumer builds its client with
-`PwsClient.forSpace({ spaceUrl })`, and that client carries the Space URL as
-`spaceUrl`. The port still requires `spaceUrl` as a separate member, so every
-such consumer hands the controller two copies of one value (was-react's
-`SyncController` passes `remoteStore.was` and `remoteStore.spaceUrl`), and the
-consumer has to keep them consistent. A client built from a base server URL has
-no single Space, so the member stays required there; the change is a default,
-not a removal. Discovered during the was-react WR-98 port.
-
 ### WS-26: Record why the default resolver keeps the payload-stamp order under WSS-96
 
 - status: todo

@@ -398,33 +398,38 @@ numbered so items and reviews can cite them.
     is the same forget invariant 7 (the replica schema is stored state)
     describes for a schema change.
 20. **A controller is bound to one port and one server.** `createSyncController`
-    takes one `port` carrying one `PwsClient`, one Space (named by its absolute
-    URL, `spaceUrl`, the one value a consumer holds whether it built the URL
-    from a base server URL and an id or read it off a grant), and one capability
+    takes one `port` carrying one `PwsClient`, one Space, and one capability
     set, and every replication it registers runs against that server for the
-    life of the instance. The spec settles that a client replicates against one
-    server at a time and that every capability is host-bound, so a second
-    replica of a Collection is reached with a new port and a new grant. A
-    consumer fails over by stopping the controller and constructing a fresh one
-    against the other replica (invariant 9, `stop()` is terminal). The local
-    rows stay. The stored checkpoint was issued by the first server, so the
-    second refuses it and the pull restarts the Collection from the beginning
-    (invariant 19, a refused checkpoint restarts the feed and clears nothing).
-    What the rows mean on the other server is an assumption the driver makes
-    rather than checks: under the stamp model a Resource is byte-identical on
-    every replica, its `ETag` and write stamp included, so the `etag` and
-    `metaEtag` a row carries from the first server condition correctly on the
-    second, and a pending local edit goes out with `If-Match` on a validator the
-    second server recognizes. The hazard is a replica behind its source. A write
-    against it draws a `412` whose re-read primary is older than the assumed
-    one, the second server not yet holding the revision the first acked. When
-    only `custom` differs, rule 2 of the default resolver adopts the re-read
-    `custom` as the server-committed state, which here is the older one. The
-    driver does not detect that case: the resolver compares bodies, not stamps,
-    and the push path treats every re-read primary as current. Failing over only
-    to a replica that has caught up with the one the consumer left is therefore
-    the consumer's sequencing concern. Whether the resolver should instead
-    compare the two primaries' stamps and prefer the assumed one is WS-29.
+    life of the instance. The Space is named by its absolute URL, `spaceUrl`,
+    the one value a consumer holds whether it built the URL from a base server
+    URL and an id or read it off a grant. It defaults to the client's own
+    `spaceUrl`, which a client built by `PwsClient.forSpace` carries. A port
+    naming no Space is refused at construction. So is a `spaceUrl` that
+    disagrees with the client's own, compared in canonical form, since a silent
+    preference either way would replicate against a Space the consumer did not
+    mean. The spec settles that a client replicates against one server at a time
+    and that every capability is host-bound, so a second replica of a Collection
+    is reached with a new port and a new grant. A consumer fails over by
+    stopping the controller and constructing a fresh one against the other
+    replica (invariant 9, `stop()` is terminal). The local rows stay. The stored
+    checkpoint was issued by the first server, so the second refuses it and the
+    pull restarts the Collection from the beginning (invariant 19, a refused
+    checkpoint restarts the feed and clears nothing). What the rows mean on the
+    other server is an assumption the driver makes rather than checks: under the
+    stamp model a Resource is byte-identical on every replica, its `ETag` and
+    write stamp included, so the `etag` and `metaEtag` a row carries from the
+    first server condition correctly on the second, and a pending local edit
+    goes out with `If-Match` on a validator the second server recognizes. The
+    hazard is a replica behind its source. A write against it draws a `412`
+    whose re-read primary is older than the assumed one, the second server not
+    yet holding the revision the first acked. When only `custom` differs, rule 2
+    of the default resolver adopts the re-read `custom` as the server-committed
+    state, which here is the older one. The driver does not detect that case:
+    the resolver compares bodies, not stamps, and the push path treats every
+    re-read primary as current. Failing over only to a replica that has caught
+    up with the one the consumer left is therefore the consumer's sequencing
+    concern. Whether the resolver should instead compare the two primaries'
+    stamps and prefer the assumed one is WS-29.
 
 ## Ownership heuristics
 
@@ -485,11 +490,13 @@ byoe-ecosystem layer map instead.
   names it, with its trailing slash (`spaceUrl` on the controller port and on
   pws-client's `createPwsSyncPort`). It is the one value a consumer holds
   whether it built the URL from a base server URL and a Space id
-  (`pws.space(id).url`) or read it off a grant (`spaceUrlOf(zcap)`). The
-  Collection URL is the Space URL followed by the percent-encoded collection id
-  and a slash, and pws-client's path builders own both rules. Avoid: space id,
-  base URL, server URL (these name the pieces a Space URL is built from, not the
-  Space).
+  (`pws.space(id).url`) or read it off a grant (`spaceUrlOf(zcap)`). On the
+  controller port it defaults to the client's own `spaceUrl`, which a client
+  built by `PwsClient.forSpace` carries. A `spaceUrl` that disagrees with the
+  client's own is refused. The Collection URL is the Space URL followed by the
+  percent-encoded collection id and a slash, and pws-client's path builders own
+  both rules. Avoid: space id, base URL, server URL (these name the pieces a
+  Space URL is built from, not the Space).
 - **Driver** -- this package: the RxDB-side implementation of PWS replication.
   Contrast the **engine** (`@interop/wallet-core/sync`), the replica-less
   implementation a mobile wallet drives. Avoid: adapter, sync layer.
