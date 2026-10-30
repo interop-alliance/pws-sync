@@ -15,7 +15,7 @@
  * `./testing`, never here.
  *
  * The wire vocabulary, the sync port implementation, the error classes, and the
- * `err.name` predicates that classify them belong to `@interop/was-client/sync`
+ * `err.name` predicates that classify them belong to `@interop/pws-client/sync`
  * and are imported from there rather than re-exported here.
  */
 export {

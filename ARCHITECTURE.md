@@ -12,7 +12,7 @@ them.
 ## Layer map
 
 `@interop/was-sync` is the WAS replication driver for RxDB. The placement --
-what lives here, and what stays in was-client, social-core, wallet-core, and
+what lives here, and what stays in pws-client, social-core, wallet-core, and
 each consuming app -- is decision
 [0001](decisions/0001-rxdb-replication-driver-package.md).
 
@@ -50,7 +50,7 @@ src/testing.ts           The "./testing" door: the stub port, and the memory
 Dependency direction is strictly downward. The runtime dependencies are
 `@interop/social-core` (the last-write-wins comparison), `json-canonicalize`
 (the JCS body equality), and `uuidv7` (the writer-id mint).
-`@interop/was-client` and `rxdb` are peers; `rxdb` is optional, since only
+`@interop/pws-client` and `rxdb` are peers; `rxdb` is optional, since only
 `./rxdb` needs it. Nothing here depends on `@interop/wallet-core`, which is what
 keeps the conflict resolver an injected seam rather than a dependency.
 
@@ -76,14 +76,14 @@ numbered so items and reviews can cite them.
    the feed, or a re-read primary; the driver never fills them in.
 3. **Every content push carries the row's `Key-Epoch` header.** The epoch id
    rides `SyncedDoc.epoch` from the feed and back out through `putContent`; the
-   header itself belongs to was-client's port. The driver runs no unknown-epoch
+   header itself belongs to pws-client's port. The driver runs no unknown-epoch
    refresh of its own, since it holds no cipher to rebuild (invariant 1). The
-   rule is `@interop/was-client/edv`'s, and it reaches the driver through the
+   rule is `@interop/pws-client/edv`'s, and it reaches the driver through the
    one seam that decrypts anything, the default resolver's `decrypt` closure: a
    consumer hands in a refreshing cipher's decrypt
    (`createRefreshingEdvDocCipher`), which re-reads the descriptor once per
    session and retries before an unseen-epoch side counts as undecryptable. The
-   undecryptable-side warnings name which of was-client's two no-key classes the
+   undecryptable-side warnings name which of pws-client's two no-key classes the
    side was (`reason: 'unknown-epoch' | 'key-unwrap' | 'other'`, through the
    `./sync` predicates), so a spent or unwired refresh is distinguishable from a
    key this reader was never given.
@@ -121,7 +121,7 @@ numbered so items and reviews can cite them.
    change, and the initial pull pages past the live copy while the delete is
    still pending); the first such change brings the live copy down, since
    nothing is pending against the row by then. The integration suite pins the
-   skip, the intact copy, and that convergence. A delete's `404` (was-client's
+   skip, the intact copy, and that convergence. A delete's `404` (pws-client's
    not-found signal, matched by name) is the already-gone outcome on either
    delete call, not an error: a conformant server answers `204` for an
    authorized delete of an absent resource, so the `404` is a masked
@@ -180,9 +180,9 @@ numbered so items and reviews can cite them.
    rather than `If-None-Match: *`, and the server accepts it, since it evaluates
    the precondition against the same composite.
 5. **Cross-package errors match by `err.name`, never `instanceof`.** Every error
-   this driver classifies is was-client's, raised inside a seam the app injects,
-   and that seam can resolve to a second copy of was-client. The predicates come
-   from `@interop/was-client/sync` (was-client's
+   this driver classifies is pws-client's, raised inside a seam the app injects,
+   and that seam can resolve to a second copy of pws-client. The predicates come
+   from `@interop/pws-client/sync` (pws-client's
    `decisions/0001-cross-package-errors-match-by-name.md`); reading `err.status`
    after the name match is the intended shape. The controller's `isAuthError`
    walks RxDB's error graph because RxDB serializes a thrown handler error to
@@ -201,7 +201,7 @@ numbered so items and reviews can cite them.
    `replicationIdentifier`. A retained checkpoint would resume the re-pull past
    every row and bring the new replica up empty. The default
    `replicationIdentifier` is `pws-sync:` followed by the Collection URL, built
-   with was-client's `collectionUrl` so a Space URL missing its trailing slash
+   with pws-client's `collectionUrl` so a Space URL missing its trailing slash
    or an unencoded collection id yields the same identifier as the canonical
    form, and two apps naming the same Collection agree. RxDB keys the persisted
    checkpoint by this identifier, so changing its shape orphans every replica's
@@ -271,16 +271,16 @@ numbered so items and reviews can cite them.
     production import would leave a replica that never syncs. The eslint config
     keeps `src/` off it, and each consumer keeps the same restriction on its own
     production globs. The integration suite runs against a live in-process
-    `was-teaching-server` through the real was-client port rather than a fake: a
+    `was-teaching-server` through the real pws-client port rather than a fake: a
     fake is a second implementation of the WAS contract, and the one this
     package started with hid bugs by synthesizing a 412 for a header-less
     DELETE, never assigning `createdBy`, and raising error shapes the default
     port does not.
 
 16. **A decrypt failure is either a missing key or a fatal one.** The closure is
-    was-client's `DocCipher.decrypt` (aliased as `ConflictDecrypt`), called with
+    pws-client's `DocCipher.decrypt` (aliased as `ConflictDecrypt`), called with
     each side's own `SyncedDoc.id` as the addressed resource and with no codec
-    context. was-client's ciphers bind an envelope to the id it was written for,
+    context. pws-client's ciphers bind an envelope to the id it was written for,
     so the addressed id has to be the row's; an id read back out of a decrypted
     body would check the envelope against itself. A no-key failure
     (`UnknownEpochError` / `KeyUnwrapError`) is scored `undecryptable` and
@@ -288,7 +288,7 @@ numbered so items and reviews can cite them.
     for another resource is not an absent key, and presuming it newer would
     adopt or re-assert a tampered envelope with nothing louder than a `warn`, so
     it propagates out of the resolver and fails the replication cycle (invariant
-    13's throw contract). A `Blob` does not arise: was-client resolves one only
+    13's throw contract). A `Blob` does not arise: pws-client resolves one only
     for a chunked envelope read with the context that fetches the chunks, which
     this resolver never supplies, and a closure that returns one anyway is
     scored `undecryptable` rather than `none` so the write is not silently lost.
@@ -398,7 +398,7 @@ numbered so items and reviews can cite them.
     is the same forget invariant 7 (the replica schema is stored state)
     describes for a schema change.
 20. **A controller is bound to one port and one server.** `createSyncController`
-    takes one `port` carrying one `WasClient`, one Space (named by its absolute
+    takes one `port` carrying one `PwsClient`, one Space (named by its absolute
     URL, `spaceUrl`, the one value a consumer holds whether it built the URL
     from a base server URL and an id or read it off a grant), and one capability
     set, and every replication it registers runs against that server for the
@@ -429,11 +429,11 @@ numbered so items and reviews can cite them.
 ## Ownership heuristics
 
 - **A WAS request, an error class, or a wire name** belongs to
-  `@interop/was-client` (`./sync` for the port, the vocabulary, and the four
+  `@interop/pws-client` (`./sync` for the port, the vocabulary, and the four
   `err.name` predicates). This package speaks no WAS HTTP itself.
-- **Which `changes` feed entries reach the driver** belongs to was-client's sync
+- **Which `changes` feed entries reach the driver** belongs to pws-client's sync
   port. The feed carries every record kind of a Collection, discriminated on
-  `kind`, and marks a tombstone with `deleted`. Since was-client 0.89.0 the
+  `kind`, and marks a tombstone with `deleted`. Since pws-client 0.89.0 the
   port's `query` hands on the `kind: 'resource'` entries with a JSON content
   type and their tombstones only. It skips the Collection's own records
   (`collection-metadata`, `log`), a binary or `text/jsonl` Resource, and a kind
@@ -442,7 +442,7 @@ numbered so items and reviews can cite them.
   ends, since RxDB drops an empty page before it stores the checkpoint. The pull
   handler and the feed primary read therefore map every document they receive
   and filter nothing themselves. The skipped kinds and the non-JSON-Resource
-  outcome are tested in was-client.
+  outcome are tested in pws-client.
 - **The last-write-wins comparison** belongs to `@interop/social-core`
   (`remotePayloadWins`). This package reads the payload's LWW fields
   (`lwwFields`) and applies whichever comparator it is handed.
@@ -450,7 +450,7 @@ numbered so items and reviews can cite them.
   app, as the injected resolver. A wallet delegates to its own contacts
   comparator; an app framework compares decrypted payloads through the default.
 - **Key material, ciphers, key epochs, and the descriptor-refresh policy**
-  belong to `@interop/was-client/edv` (`createRefreshingEdvDocCipher`,
+  belong to `@interop/pws-client/edv` (`createRefreshingEdvDocCipher`,
   `DescriptorRefreshPolicy`, `acquireDescriptor`); wiring them into a
   collection's decrypt belongs to each consuming app.
 - **The session gates** (guest, no remote configured, no local replica) belong
@@ -466,14 +466,14 @@ numbered so items and reviews can cite them.
 
 ## Parties to the specs
 
-The WAS spec's "Parties to this contract" table names `@interop/was-client` as
+The WAS spec's "Parties to this contract" table names `@interop/pws-client` as
 the speaker of the `changes` profile, and this package takes no row of its own:
-every request it makes goes through was-client's sync port, so by the table's
+every request it makes goes through pws-client's sync port, so by the table's
 admission rule ("speaks the WAS HTTP contract directly") it is a downstream
-consumer like the wallets. The walk recorded at the extraction: was-client
+consumer like the wallets. The walk recorded at the extraction: pws-client
 unchanged and still the one named speaker; storage-core, was-teaching-server,
 and was-conformance-suite unaffected (no wire byte changes); everything
-downstream gains this package as one more consumer through was-client, with no
+downstream gains this package as one more consumer through pws-client, with no
 row text change; and in the encrypted-collections spec the `@interop/was-react`
 row is confirmed rather than rewritten, since the document cipher stays there
 and this package holds none. The package's node and its `rxdb` edge belong to
@@ -483,11 +483,11 @@ the byoe-ecosystem layer map instead.
 
 - **Space URL** -- the remote Space's absolute URL as the server or a capability
   names it, with its trailing slash (`spaceUrl` on the controller port and on
-  was-client's `createWasSyncPort`). It is the one value a consumer holds
+  pws-client's `createPwsSyncPort`). It is the one value a consumer holds
   whether it built the URL from a base server URL and a Space id
-  (`was.space(id).url`) or read it off a grant (`spaceUrlOf(zcap)`). The
+  (`pws.space(id).url`) or read it off a grant (`spaceUrlOf(zcap)`). The
   Collection URL is the Space URL followed by the percent-encoded collection id
-  and a slash, and was-client's path builders own both rules. Avoid: space id,
+  and a slash, and pws-client's path builders own both rules. Avoid: space id,
   base URL, server URL (these name the pieces a Space URL is built from, not the
   Space).
 - **Driver** -- this package: the RxDB-side implementation of WAS replication.
@@ -571,7 +571,7 @@ the byoe-ecosystem layer map instead.
   header on the content push. The driver never interprets it. Avoid: key
   version, epoch key.
 - **Conflict decrypt** -- the closure the default resolver opens both sides of a
-  mutable-head conflict with (`ConflictDecrypt`, was-client's
+  mutable-head conflict with (`ConflictDecrypt`, pws-client's
   `DocCipher.decrypt`). It is the only seam in the driver that reads a body, and
   it is called with the row's own id and no codec context. Avoid: cipher,
   decryptor, unseal.

@@ -6,7 +6,7 @@
  * and pull handler), driven by a fake WAS port -- no server, no RxDB engine.
  */
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
-import { WasSyncCheckpointError } from '@interop/was-client/sync'
+import { PwsSyncCheckpointError } from '@interop/pws-client/sync'
 import { captureLogger } from '@interop/logger'
 import { createPullHandler, wireDocToRxDoc } from '../../src/changesQuery.js'
 import { setLogger, type Logger } from '../../src/log.js'
@@ -253,7 +253,7 @@ describe('createPullHandler', () => {
   const updatedAt = '2026-01-01T00:00:01Z'
   const doc = (id: string, checkpoint: SyncCheckpoint): WireDoc =>
     wire({ id, updatedAt, checkpoint })
-  const rejected = new WasSyncCheckpointError()
+  const rejected = new PwsSyncCheckpointError()
 
   /**
    * The package's logging seam, captured per test and restored afterwards. A
@@ -431,9 +431,9 @@ describe('createPullHandler', () => {
     expect(capture.events).toHaveLength(1)
   })
 
-  it('matches the refusal by name, as from another copy of was-client', async () => {
+  it('matches the refusal by name, as from another copy of pws-client', async () => {
     const foreign = Object.assign(new Error('refused elsewhere'), {
-      name: 'WasSyncCheckpointError'
+      name: 'PwsSyncCheckpointError'
     })
     const port = {
       calls: [] as Array<{ checkpoint?: SyncCheckpoint; limit: number }>,

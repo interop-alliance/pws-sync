@@ -31,13 +31,13 @@
  */
 import type { RxChangeEvent, RxCollection } from 'rxdb/plugins/core'
 import type { RxReplicationState } from 'rxdb/plugins/replication'
-import type { IZcap, WasClient } from '@interop/was-client'
-import { collectionUrl } from '@interop/was-client/paths'
+import type { IZcap, PwsClient } from '@interop/pws-client'
+import { collectionUrl } from '@interop/pws-client/paths'
 import {
-  createWasSyncPort,
+  createPwsSyncPort,
   isSyncAuthError,
   type SyncStatus
-} from '@interop/was-client/sync'
+} from '@interop/pws-client/sync'
 import type { ReplicationCheckpoint, SyncedDoc, WasSyncPort } from './types.js'
 import { log } from './log.js'
 import { createWasReplication } from './wasReplication.js'
@@ -88,8 +88,8 @@ const defaultSchedule: SyncSchedule = {
 /**
  * Whether a replication error signals expired or revoked storage access. Every
  * WAS request the replication makes funnels through the sync port, which (under
- * `mapAuthErrors`) maps a `401` / `403` / masked `404` to was-client's
- * `WasSyncAuthError` at the boundary, so this looks for that signal rather than
+ * `mapAuthErrors`) maps a `401` / `403` / masked `404` to pws-client's
+ * `PwsSyncAuthError` at the boundary, so this looks for that signal rather than
  * re-extracting raw status codes.
  *
  * The signal is looked for anywhere in the error rather than on the emitted
@@ -99,10 +99,10 @@ const defaultSchedule: SyncSchedule = {
  * edges and remembers what it has seen, so a cycle in the graph terminates
  * instead of hanging the subscriber that called it.
  *
- * The leaf test is a name check (was-client's `isSyncAuthError`), because RxDB
+ * The leaf test is a name check (pws-client's `isSyncAuthError`), because RxDB
  * serializes the thrown error to plain JSON on the way in (name, message,
  * stack -- through `errorToPlainJson`): no live instance survives the wrapping,
- * and a second resolved copy of was-client would defeat an `instanceof` even if
+ * and a second resolved copy of pws-client would defeat an `instanceof` even if
  * one did (invariant 5).
  *
  * @param err {unknown}
@@ -144,11 +144,11 @@ export function isAuthError(err: unknown): boolean {
  * The port is inlined at the signature because it is used once. Its members:
  * `wasClient` and `spaceUrl` locate the remote Space. `spaceUrl` is the
  * Space's absolute URL as the server or a capability names it. A consumer
- * holding a base server URL and a Space id builds it with `was.space(id).url`.
+ * holding a base server URL and a Space id builds it with `pws.space(id).url`.
  * One holding a grant reads it with `spaceUrlOf(zcap)`.
  *
  * The default `replicationIdentifier` is `pws-sync:` followed by the Collection
- * URL from was-client's `collectionUrl`. That canonicalizes a Space URL missing
+ * URL from pws-client's `collectionUrl`. That canonicalizes a Space URL missing
  * its trailing slash and a collection id that needs percent-encoding, so two
  * apps naming the same Collection agree. Changing its shape orphans every
  * replica's persisted checkpoint.
@@ -160,7 +160,7 @@ export function isAuthError(err: unknown): boolean {
  * The two port flags are deployment properties rather than app preferences.
  * `feedPrimaryRead` resolves the 412 conflict re-read from the changes-feed body
  * for a server that hides the ETag behind CORS ({@link withFeedPrimaryRead});
- * `mapAuthErrors` asks was-client's port for typed auth signals, which is what
+ * `mapAuthErrors` asks pws-client's port for typed auth signals, which is what
  * `onAuthError` needs to fire.
  *
  * A collection with no `capability` in a port whose OTHER entries carry one is
@@ -205,7 +205,7 @@ export function createSyncController({
   writerId
 }: {
   port: {
-    wasClient: WasClient
+    wasClient: PwsClient
     spaceUrl: string
     collections: Array<{ key: string; id: string; capability?: IZcap }>
     rxCollection: (key: string) => RxCollection<SyncedDoc>
@@ -308,11 +308,11 @@ export function createSyncController({
           continue
         }
         onStatus(key, id, 'idle')
-        // was-client's port is this package's `WasSyncPort` by construction
+        // pws-client's port is this package's `WasSyncPort` by construction
         // (the wire types are aliased from it), so a divergence in either
         // fails to compile here rather than inside a push or pull cycle.
-        const basePort: WasSyncPort = createWasSyncPort({
-          was: port.wasClient,
+        const basePort: WasSyncPort = createPwsSyncPort({
+          pws: port.wasClient,
           spaceUrl: port.spaceUrl,
           collectionId: id,
           ...(capability !== undefined && { capability }),

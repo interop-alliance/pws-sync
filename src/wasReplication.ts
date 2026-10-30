@@ -17,7 +17,7 @@ import {
   type RxReplicationState
 } from 'rxdb/plugins/replication'
 import type { RxCollection } from 'rxdb/plugins/core'
-import { isMetaStamp, isWriteStamp } from '@interop/was-client/sync'
+import { isMetaStamp, isWriteStamp } from '@interop/pws-client/sync'
 import type {
   OptionalBodyFields,
   ReplicationCheckpoint,

@@ -4,7 +4,7 @@
 /**
  * Integration test: drives the driver through a REAL RxDB collection (memory
  * storage) against a REAL in-process was-teaching-server, over the sync port
- * `@interop/was-client` builds (`createWasSyncPort`, default configuration).
+ * `@interop/pws-client` builds (`createPwsSyncPort`, default configuration).
  * It proves the full replication machine -- schema, checkpoint iteration,
  * `deletedField`, push/pull round-trips -- rather than the handlers in
  * isolation, and it does so against the server's actual conditional-write,
@@ -22,13 +22,13 @@ import { getRxStorageMemory } from 'rxdb/plugins/storage-memory'
 import { openTempBackend, startTestServer } from 'was-teaching-server/testing'
 import { Ed25519VerificationKey } from '@interop/ed25519-verification-key'
 import { captureLogger } from '@interop/logger'
-import { WasClient } from '@interop/was-client'
+import { PwsClient } from '@interop/pws-client'
 import {
-  createWasSyncPort,
+  createPwsSyncPort,
   deriveSpaceId,
   ensureSpaceAndCollection,
   isSyncConflictError
-} from '@interop/was-client/sync'
+} from '@interop/pws-client/sync'
 import { createWasReplication } from '../../src/wasReplication.js'
 import { setLogger } from '../../src/log.js'
 import { syncedDocSchema } from '../../src/syncedDocSchema.js'
@@ -49,7 +49,7 @@ import type {
 const SEED = new Uint8Array(32).map((_, index) => (index * 31 + 7) & 0xff)
 
 let server: Awaited<ReturnType<typeof startTestServer>>
-let was: WasClient
+let pws: PwsClient
 let spaceUrl: string
 let controllerDid: string
 let db: RxDatabase | undefined
@@ -69,11 +69,11 @@ beforeAll(async () => {
 
   const keyPair = await Ed25519VerificationKey.generate({ seed: SEED })
   controllerDid = `did:key:${keyPair.fingerprint()}`
-  was = WasClient.fromSigner({
+  pws = PwsClient.fromSigner({
     baseServerUrl: serverUrl,
     signer: keyPair.didKeySigner()
   })
-  spaceUrl = was.space(deriveSpaceId(controllerDid)).url
+  spaceUrl = pws.space(deriveSpaceId(controllerDid)).url
 })
 
 afterAll(async () => {
@@ -99,13 +99,13 @@ async function openServerCollection(): Promise<{
   collectionSerial += 1
   const collectionId = `synced-${collectionSerial}`
   await ensureSpaceAndCollection({
-    was,
+    pws,
     spaceUrl,
     controllerDid,
     collectionId,
     encryption: 'plaintext'
   })
-  const build = () => createWasSyncPort({ was, spaceUrl, collectionId })
+  const build = () => createPwsSyncPort({ pws, spaceUrl, collectionId })
   return { port: build(), observer: build() }
 }
 
@@ -165,8 +165,8 @@ async function pullFreshReplica({
     })
     const replication = createWasReplication({
       rxCollection: synced,
-      wasPort: createWasSyncPort({
-        was,
+      wasPort: createPwsSyncPort({
+        pws,
         spaceUrl,
         collectionId: `synced-${collectionSerial}`
       }),
@@ -492,8 +492,8 @@ describe('WAS replication (RxDB + live was-teaching-server)', () => {
     const dbA = db
     db = undefined
     const replicaB = await openCollection()
-    const portB = createWasSyncPort({
-      was,
+    const portB = createPwsSyncPort({
+      pws,
       spaceUrl,
       collectionId: `synced-${collectionSerial}`
     })
@@ -644,15 +644,15 @@ describe('WAS replication (RxDB + live was-teaching-server)', () => {
 
       // Delete the Collection and re-create it under the same id. The new
       // life gets an observer of its own.
-      await was.spaceAt(spaceUrl).collection(collectionId).delete()
+      await pws.spaceAt(spaceUrl).collection(collectionId).delete()
       await ensureSpaceAndCollection({
-        was,
+        pws,
         spaceUrl,
         controllerDid,
         collectionId,
         encryption: 'plaintext'
       })
-      const newObserver = createWasSyncPort({ was, spaceUrl, collectionId })
+      const newObserver = createPwsSyncPort({ pws, spaceUrl, collectionId })
       const newBody = {
         step: 'new-1',
         updatedAt: '2026-01-01T00:00:02Z',

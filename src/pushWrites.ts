@@ -79,7 +79,7 @@
  * A `412` whose re-read resolves `null` is reported as a tombstone conflict
  * entry carrying the local `updatedAt` and no other stamp member, no `etag`,
  * and no `meta`: it describes a state the driver could not read. The plain
- * was-client port resolves `null` for a tombstone and for a resource that never
+ * pws-client port resolves `null` for a tombstone and for a resource that never
  * existed alike (a `GET` on either is a `404`), and the two cases take the same
  * next write, so the entry does not tell them apart. A server treats a
  * tombstone as absent for preconditions: `If-None-Match: *` re-creates it while
@@ -120,7 +120,7 @@
  * that does not treat delete as idempotent or WAS's masked authorization
  * refusal. Either way the tombstone's goal state cannot be advanced by a retry:
  * a rethrow would reject the whole batch and RxDB would re-send it unchanged
- * forever, so no other row in the batch could reach the server. was-client's
+ * forever, so no other row in the batch could reach the server. pws-client's
  * port already resolves the `404` itself under `mapAuthErrors`; on the default
  * port it raises the not-found signal, and this handler reads both the same
  * way. Revoked access still surfaces on the next feed pull.
@@ -158,7 +158,7 @@ import {
   isSyncAuthError,
   isSyncConflictError,
   isSyncNotFoundError
-} from '@interop/was-client/sync'
+} from '@interop/pws-client/sync'
 import type {
   PrimaryReadCache,
   PrimaryState,

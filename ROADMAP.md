@@ -1,6 +1,6 @@
 # WAS Sync Roadmap (open items)
 
-nextAvailableId: 31
+nextAvailableId: 32
 
 Status as of 2026-09-05. Uses the formalized item structure shared across the
 `@interop/*` repos.
@@ -22,7 +22,42 @@ in [AGENTS.md](AGENTS.md) under "Roadmap & Task Conventions".
 
 ---
 
-### WS-26: Record why the default resolver keeps the payload-stamp order under WAS-96
+### WS-31: Default the port's `spaceUrl` to the client's own
+
+- status: todo
+- priority: low
+- labels: api, port, was-react
+- touches:
+  - pws-client (`createPwsSyncPort` takes the same `spaceUrl` beside `pws`;
+    the same default applies there)
+  - was-react (`SyncController` passes `remoteStore.spaceUrl` beside
+    `remoteStore.was`; once the default lands, `WasRemoteStore.spaceUrl` can
+    read `was.spaceUrl` instead of storing a second copy)
+- acceptance:
+  - [ ] `createSyncController`'s port accepts `spaceUrl` as optional; when
+        absent, it reads `wasClient.spaceUrl` (set on a client built by
+        `PwsClient.forSpace`)
+  - [ ] A port with neither (`spaceUrl` absent and a client built from a base
+        server URL) is refused at construction with an error naming both ways to
+        supply the Space
+  - [ ] A `spaceUrl` passed beside a `forSpace` client that disagrees with
+        `wasClient.spaceUrl` is refused rather than silently preferred
+  - [ ] The replication identifier and the per-collection port are built from
+        the resolved value, so a consumer passing only the client gets the same
+        identifier it gets today
+  - [ ] Tests cover the three cases above; ARCHITECTURE.md's port description
+        and the `createSyncController` header name the default
+
+Context: since pws-client 0.100 a grants-only consumer builds its client with
+`PwsClient.forSpace({ spaceUrl })`, and that client carries the Space URL as
+`spaceUrl`. The port still requires `spaceUrl` as a separate member, so every
+such consumer hands the controller two copies of one value (was-react's
+`SyncController` passes `remoteStore.was` and `remoteStore.spaceUrl`), and the
+consumer has to keep them consistent. A client built from a base server URL has
+no single Space, so the member stays required there; the change is a default,
+not a removal. Discovered during the was-react WR-98 port.
+
+### WS-26: Record why the default resolver keeps the payload-stamp order under WSS-96
 
 - status: todo
 - priority: low
@@ -37,7 +72,7 @@ in [AGENTS.md](AGENTS.md) under "Roadmap & Task Conventions".
         that sees two stamped sides, for instance a future `keep-conflicts`
         sibling comparison) so the next reader can tell whether to reopen it
 
-Context: WAS-96 invariant 12 rewrites the spec's client-side tie-break: stamped
+Context: WSS-96 invariant 12 rewrites the spec's client-side tie-break: stamped
 records order by `(ms, counter, originId)`, and `(updatedAt, writerId)` is kept
 for an unstamped local edit against a stamped remote. The default resolver's
 rules 1 and 2 compare bodies, not revisions, so they survive the model, and its
@@ -101,6 +136,6 @@ validators differ from the ack's.
 
 discovered-from: WS-17
 
-Unchanged by WAS-96: its open point 2 keeps two stamp sets per Resource, so
+Unchanged by WSS-96: its open point 2 keeps two stamp sets per Resource, so
 `/meta` stays independently versioned and the race above stays reachable. The
 "validators differ" rule would compare the nested `meta` stamp under WS-23.

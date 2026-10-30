@@ -10,7 +10,7 @@
  * rule. The feed's `writerId` label is carried into the row like `createdBy`,
  * on tombstones too.
  */
-import { isSyncCheckpointError } from '@interop/was-client/sync'
+import { isSyncCheckpointError } from '@interop/pws-client/sync'
 import type {
   ReplicationCheckpoint,
   SyncCheckpoint,

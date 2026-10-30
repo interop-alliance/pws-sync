@@ -6,8 +6,8 @@
  *
  * The driver moves stored bodies between a local replica and a remote WAS
  * Collection through the {@link WasSyncPort} seam. Nothing here imports RxDB or
- * `@interop/was-client` at runtime: the wire model (`Json`, `SyncCheckpoint`,
- * the base primary state, the write acknowledgment) is was-client's, imported
+ * `@interop/pws-client` at runtime: the wire model (`Json`, `SyncCheckpoint`,
+ * the base primary state, the write acknowledgment) is pws-client's, imported
  * as types only, so a body crosses the port boundary without a cast.
  *
  * The wire contract follows the WAS `changes` feed and its V2
@@ -33,13 +33,13 @@ import type {
   SyncCheckpoint as ClientSyncCheckpoint,
   WireDoc as ClientWireDoc,
   WriteAck as ClientWriteAck
-} from '@interop/was-client/sync'
+} from '@interop/pws-client/sync'
 
 /**
  * A JSON value -- the opaque stored resource body the sync layer moves
  * verbatim. For a plaintext collection this is the user document; for an
  * encrypted one it is the EDV envelope. The driver never inspects or transforms
- * it. was-client owns the wire model, so the type is aliased rather than
+ * it. pws-client owns the wire model, so the type is aliased rather than
  * re-declared.
  */
 export type { Json }
@@ -49,7 +49,7 @@ export type { Json }
  * `{ updatedAt, updatedAtCounter, originId, generation }`, nested on a wire
  * document, a primary state, and a stored row under `meta`. Present only once
  * metadata has been written for the resource, and then complete: the driver
- * stores and compares it whole and reads no member of it. was-client's type,
+ * stores and compares it whole and reads no member of it. pws-client's type,
  * re-exported so a consumer names it from here.
  */
 export type { ResourceMetaStamp }
@@ -253,7 +253,7 @@ export function copyOptionalBodyFields({
  * The resume position in the change feed: the opaque checkpoint string of the
  * last document a pull returned, scoped to the server and collection that
  * issued it. Passed back verbatim to resume, compared by equality only, and
- * used as the RxDB replication checkpoint. was-client's own checkpoint type,
+ * used as the RxDB replication checkpoint. pws-client's own checkpoint type,
  * aliased here so the driver and the port agree by construction.
  */
 export type SyncCheckpoint = ClientSyncCheckpoint
@@ -286,7 +286,7 @@ export interface ReplicationCheckpoint {
  * opaque key-epoch id the content body was encrypted under, and `createdBy` the
  * server-managed creator DID, both moved verbatim. `writerId` is the
  * writer-attribution label the revision was declared under, when one was,
- * carried into the local row the same way. was-client's own feed
+ * carried into the local row the same way. pws-client's own feed
  * document type, aliased here so the driver and the port agree by construction.
  */
 export type WireDoc = ClientWireDoc
@@ -318,14 +318,14 @@ export interface SyncedDoc extends OptionalBodyFields {
 
 /**
  * The current server-side state of a single resource, as read back for the 412
- * conflict path: was-client's own primary state (the content `updatedAt`, plus
+ * conflict path: pws-client's own primary state (the content `updatedAt`, plus
  * the optional `updatedAtCounter` / `originId` / `meta` / `data` / `custom` /
  * `createdBy` / `epoch` / `writerId` and the validators) plus the OPTIONAL
  * `deleted` flag that distinguishes a tombstone from a live resource.
  *
  * The flag is optional because the two `get` implementations report an absent
  * resource differently. A feed-backed read ({@link withFeedPrimaryRead})
- * resolves a tombstone as a document and sets the flag; a was-client `get`
+ * resolves a tombstone as a document and sets the flag; a pws-client `get`
  * resolves `null` for both a tombstone and an absence and sets nothing. A
  * reader treats an absent flag as `false` and a `null` read as the tombstone.
  */
@@ -372,20 +372,20 @@ export interface PrimaryReadCache {
  * `originId`, copied whole or not at all), the `/meta` record's stamp under
  * `meta` on a metadata write, and `createdBy` on a create. It carries no
  * revision number. `etag` is absent where the header did not reach the client;
- * was-client's own ack type, aliased here so the driver and the port agree by
+ * pws-client's own ack type, aliased here so the driver and the port agree by
  * construction.
  */
 export type WriteAck = ClientWriteAck
 
 /**
- * The write/query half of the injected WAS-access seam. was-client's
- * `createWasSyncPort` implements it; this package depends only on the
+ * The write/query half of the injected WAS-access seam. pws-client's
+ * `createPwsSyncPort` implements it; this package depends only on the
  * interface. Every method moves the stored body verbatim -- no codec, no key
  * handling -- so the same port works for plaintext and encrypted collections
  * alike.
  *
  * `putContent` / `deleteContent` / `putMeta` MUST throw the port's conflict
- * signal (was-client's `WasSyncConflictError`, matched by
+ * signal (pws-client's `PwsSyncConflictError`, matched by
  * `isSyncConflictError`) when the server rejects a conditional write with
  * `412 precondition-failed`, and let every other error propagate so RxDB's
  * retry and backoff handles it.
@@ -447,9 +447,9 @@ export interface WasSyncBasePort {
    * when the server supplies one (the reference server does not). A
    * spec-conformant server answers `204` for an authorized delete of an absent
    * resource. A `404` may either resolve `undefined` or reject with the
-   * not-found signal (`err.name === 'WasSyncNotFoundError'`); the push handler
+   * not-found signal (`err.name === 'PwsSyncNotFoundError'`); the push handler
    * reads both as the already-gone outcome, so neither port configuration of
-   * was-client wedges the batch on it. `writerId` declares the deleting
+   * pws-client wedges the batch on it. `writerId` declares the deleting
    * agent's attribution label as the `Writer-Id` header, recorded on the
    * tombstone; an absent one clears it.
    *
@@ -476,7 +476,7 @@ export interface WasSyncBasePort {
    * server does not create a resource from a `/meta` write). Returns the new
    * metadata {@link WriteAck}, or `undefined` when the server does not supply
    * one. A `404` (the resource was deleted by another replica) rejects with
-   * the not-found signal (`err.name === 'WasSyncNotFoundError'`) on the default
+   * the not-found signal (`err.name === 'PwsSyncNotFoundError'`) on the default
    * port, or the auth signal carrying `status: 404` on a `mapAuthErrors` port;
    * the push handler corroborates either against the changes feed before
    * treating it as a delete race. No writer-attribution label is sent: the
@@ -501,8 +501,8 @@ export interface WasSyncBasePort {
 /**
  * The full sync port the driver consumes: a {@link WasSyncBasePort}'s
  * write/query methods plus the `get` the 412 conflict assembler uses. The push
- * handler and `createWasReplication` require this full port; was-client's
- * `createWasSyncPort` returns one, and a base port gains `get` through
+ * handler and `createWasReplication` require this full port; pws-client's
+ * `createPwsSyncPort` returns one, and a base port gains `get` through
  * {@link withFeedPrimaryRead}.
  */
 export interface WasSyncPort extends WasSyncBasePort {

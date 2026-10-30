@@ -10,10 +10,10 @@ import { describe, it, expect } from 'vitest'
 import { captureLogger } from '@interop/logger'
 
 import {
-  WasSyncAuthError,
-  WasSyncConflictError,
-  WasSyncNotFoundError
-} from '@interop/was-client/sync'
+  PwsSyncAuthError,
+  PwsSyncConflictError,
+  PwsSyncNotFoundError
+} from '@interop/pws-client/sync'
 import { createPushHandler, type PushWriteAck } from '../../src/pushWrites.js'
 import { withFeedPrimaryRead } from '../../src/feedPrimaryPort.js'
 import { setLogger } from '../../src/log.js'
@@ -144,13 +144,13 @@ function fakePushPort(
   const metaWrites = new Map<string, number>()
   const maybeReject = (kind: WriteCall['kind'], id: string) => {
     if (options.conflictOn?.kind === kind && options.conflictOn.id === id) {
-      throw new WasSyncConflictError()
+      throw new PwsSyncConflictError()
     }
     if (options.notFoundOn?.kind === kind && options.notFoundOn.id === id) {
-      throw new WasSyncNotFoundError()
+      throw new PwsSyncNotFoundError()
     }
     if (options.auth404On?.kind === kind && options.auth404On.id === id) {
-      throw new WasSyncAuthError(404)
+      throw new PwsSyncAuthError(404)
     }
   }
   // Counts this id's accepted writes and acks the validator the count names;
@@ -1501,7 +1501,7 @@ describe('createPushHandler metadata 404 corroboration', () => {
     // must escalate rather than be reinterpreted as a delete race.
     const port = fakePushPort({
       auth404On: { kind: 'putMeta', id: 'r1' },
-      getRejectsWith: new WasSyncAuthError(403)
+      getRejectsWith: new PwsSyncAuthError(403)
     })
     const push = createPushHandler({ port })
 
@@ -1515,7 +1515,7 @@ describe('createPushHandler metadata 404 corroboration', () => {
           })
         }
       ])
-    ).rejects.toMatchObject({ name: 'WasSyncAuthError', status: 403 })
+    ).rejects.toMatchObject({ name: 'PwsSyncAuthError', status: 403 })
   })
 
   it('propagates a non-404 auth error on /meta without a corroborating re-read', async () => {
@@ -1525,7 +1525,7 @@ describe('createPushHandler metadata 404 corroboration', () => {
     const port = fakePushPort({ primary: null })
     port.putMeta = async metaOptions => {
       port.writes.push({ kind: 'putMeta', ...metaOptions })
-      throw new WasSyncAuthError(403)
+      throw new PwsSyncAuthError(403)
     }
     const push = createPushHandler({ port })
 
@@ -1539,7 +1539,7 @@ describe('createPushHandler metadata 404 corroboration', () => {
           })
         }
       ])
-    ).rejects.toMatchObject({ name: 'WasSyncAuthError', status: 403 })
+    ).rejects.toMatchObject({ name: 'PwsSyncAuthError', status: 403 })
     expect(port.getCalls).toEqual([])
   })
 
@@ -1600,12 +1600,12 @@ describe('createPushHandler metadata 404 corroboration', () => {
     {
       shape: 'the plain not-found on the default port',
       port: 'notFoundOn' as const,
-      expected: { name: 'WasSyncNotFoundError' }
+      expected: { name: 'PwsSyncNotFoundError' }
     },
     {
       shape: 'the auth 404',
       port: 'auth404On' as const,
-      expected: { name: 'WasSyncAuthError', status: 404 }
+      expected: { name: 'PwsSyncAuthError', status: 404 }
     }
   ])(
     'resolves $shape as a conflict on the live primary, with a warn',
@@ -1713,7 +1713,7 @@ function fakeFeedBase(options: {
         await feedRead
       }
       if (options.conflictContent?.includes(id)) {
-        throw new WasSyncConflictError()
+        throw new PwsSyncConflictError()
       }
       const current = documents.get(id)
       const updatedAtCounter = (current?.updatedAtCounter ?? 0) + 1
@@ -1732,7 +1732,7 @@ function fakeFeedBase(options: {
     },
     async putMeta({ id }) {
       if (options.conflictMeta?.includes(id)) {
-        throw new WasSyncConflictError()
+        throw new PwsSyncConflictError()
       }
       return { etag: metaEtagFor(1) }
     }
@@ -1900,7 +1900,7 @@ describe('createPushHandler benign delete retry', () => {
       async deleteContent({ ifMatch }) {
         deletes.push(ifMatch)
         if (ifMatch !== serverEtag) {
-          throw new WasSyncConflictError()
+          throw new PwsSyncConflictError()
         }
         return undefined
       },
@@ -2544,7 +2544,7 @@ describe('createPushHandler batch settlement', () => {
 
 describe('createPushHandler delete of an absent resource', () => {
   it('treats a not-found delete as already gone and lets the rest of the batch land', async () => {
-    // The default was-client port raises the not-found signal on a delete
+    // The default pws-client port raises the not-found signal on a delete
     // `404` (only `mapAuthErrors: true` swallows it). A spec-conformant server
     // answers `204` for an authorized delete of an absent resource, so the
     // `404` is a non-idempotent server or a masked authorization refusal;
@@ -2611,9 +2611,9 @@ describe('createPushHandler delete of an absent resource', () => {
       async deleteContent({ ifMatch }) {
         deletes.push(ifMatch)
         if (deletes.length === 1) {
-          throw new WasSyncConflictError()
+          throw new PwsSyncConflictError()
         }
-        throw new WasSyncNotFoundError()
+        throw new PwsSyncNotFoundError()
       },
       async putMeta() {
         return undefined
@@ -2641,12 +2641,12 @@ describe('createPushHandler delete of an absent resource', () => {
   })
 
   it('matches the not-found signal by name alone, with no status', async () => {
-    // A second copy of was-client raises a structurally foreign error; only
+    // A second copy of pws-client raises a structurally foreign error; only
     // `name` is matched (invariant 5), and no `status` is consulted.
     const port = fakePushPort()
     port.deleteContent = async deleteOptions => {
       port.writes.push({ kind: 'deleteContent', ...deleteOptions })
-      throw { name: 'WasSyncNotFoundError', message: 'foreign 404' }
+      throw { name: 'PwsSyncNotFoundError', message: 'foreign 404' }
     }
     const push = createPushHandler({ port })
 
@@ -2687,8 +2687,8 @@ describe('createPushHandler delete of an absent resource', () => {
 
 describe('createPushHandler typed signals from another copy', () => {
   /**
-   * The signals a foreign copy of `@interop/was-client` raises: structurally
-   * the same error, matched only by `name`. A `WasSyncConflictError` from a
+   * The signals a foreign copy of `@interop/pws-client` raises: structurally
+   * the same error, matched only by `name`. A `PwsSyncConflictError` from a
    * second physical copy of the package is not `instanceof` this copy's class,
    * so the push handler matches the name string (the WC-64 rule).
    */
@@ -2696,13 +2696,13 @@ describe('createPushHandler typed signals from another copy', () => {
     status: number
     constructor(status: number) {
       super(`foreign ${status}`)
-      this.name = 'WasSyncAuthError'
+      this.name = 'PwsSyncAuthError'
       this.status = status
     }
   }
 
   it('routes a conflict signal raised by an unrelated copy to the conflict branch', async () => {
-    const foreignConflict = { name: 'WasSyncConflictError', message: '412' }
+    const foreignConflict = { name: 'PwsSyncConflictError', message: '412' }
     const port: WasSyncPort = {
       async query() {
         return { documents: [], checkpoint: null }
@@ -2882,7 +2882,7 @@ describe('createPushHandler writer attribution', () => {
       async deleteContent({ ifMatch, writerId: declared }) {
         deletes.push({ ifMatch, writerId: declared })
         if (ifMatch !== etagFor(2)) {
-          throw new WasSyncConflictError()
+          throw new PwsSyncConflictError()
         }
         return undefined
       },
