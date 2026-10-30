@@ -121,10 +121,10 @@ the write-back itself (`ARCHITECTURE.md:37-39`, `:207-210`, `src/rxdb.ts:6-7`,
 
 Produced by a grep of `onWriteAccepted`, `PushWriteAck`, `createPushHandler`,
 `createWasReplication`, `makeConflictHandler`, `makeLwwConflictHandler`,
-`statesEqual`, `isEqual`, and `@interop/was-sync` across was-sync, was-react,
+`statesEqual`, `isEqual`, and `@interop/pws-sync` across pws-sync, was-react,
 freewallet, dcw, and wallet-core (excluding `node_modules`), plus the export
 lists of `src/index.ts` and `src/rxdb.ts`, a grep of `WriteAck` / `putMeta` /
-`putContent` in wallet-core's and was-client's `src/`, and a walk of the WAS
+`putContent` in wallet-core's and was-client's `src/`, and a walk of the PWS
 spec's "Parties to this contract" table (portable-web-spaces-spec
 `AGENTS.md:101-115`) and the encrypted-collections spec's table.
 
@@ -354,7 +354,7 @@ was-conformance-suite. A hard predecessor, since the server's CI runs the
 published suite. The six strict-`204` sites accept `201`, `200`, or `204`, and
 check the body shape when a `2xx` carries one.
 
-Release order: suite, server, was-client, was-sync. was-sync bumps the
+Release order: suite, server, was-client, pws-sync. pws-sync bumps the
 was-client devDependency and raises its peer floor to the widening release, and
 its server devDependency returns to a registry version.
 

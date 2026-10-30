@@ -2,15 +2,15 @@
  * Copyright (c) 2026 Interop Alliance. All rights reserved.
  */
 /**
- * `createWasReplication` -- wires an RxDB collection to a remote WAS Collection
+ * `createWasReplication` -- wires an RxDB collection to a remote PWS Collection
  * through the collection-agnostic pull/push handlers. This is the driver's own
  * entry point; the caller supplies an already-open RxDB
- * collection and a {@link WasSyncPort} (its only WAS dependency), and gets back
+ * collection and a {@link WasSyncPort} (its only PWS dependency), and gets back
  * the live `RxReplicationState` to observe (`error$` / `active$`) and control
  * (`reSync()` / `cancel()`).
  *
  * No React imports -- only RxDB (the replication engine being wrapped) and the
- * injected port. This is the seam that keeps the WAS access injectable.
+ * injected port. This is the seam that keeps the PWS access injectable.
  */
 import {
   replicateRxCollection,
@@ -260,14 +260,14 @@ function createAckWriteBack({
 }
 
 /**
- * Starts (or configures) replication of one RxDB collection against a remote WAS
+ * Starts (or configures) replication of one RxDB collection against a remote PWS
  * Collection. Poll-based only -- no `pull.stream$` (live streaming is deferred
  * server-side); RxDB's own `retryTime` backoff and `error$` are the reachability
  * signal (the replication attempt is the probe).
  *
  * @param options {object}
  * @param options.rxCollection {RxCollection<SyncedDoc>}   the local replica
- * @param options.wasPort {WasSyncPort}                    injected WAS access
+ * @param options.wasPort {WasSyncPort}                    injected PWS access
  * @param options.replicationIdentifier {string}   stable id (include the server
  *   URL + collection) so RxDB can resume across reloads
  * @param [options.batchSize] {number}    pull `limit` / push batch (default 100)
@@ -275,7 +275,7 @@ function createAckWriteBack({
  * @param [options.live] {boolean}        ongoing (default true) vs one-shot
  * @param [options.autoStart] {boolean}   start immediately (default true)
  * @param [options.writerId] {string}    this replica's writer-attribution
- *   label (the WAS `writerId`), minted and kept app-side. The driver never
+ *   label (the PWS `writerId`), minted and kept app-side. The driver never
  *   mints, persists, or derives one. When present, every content write and
  *   delete declares it as the `Writer-Id` header; a metadata write sends none,
  *   since the label is a member of the content record alone. When absent,

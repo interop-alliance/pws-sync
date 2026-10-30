@@ -12,10 +12,10 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 // patterns.)
 const noTestingFixtures = [
   {
-    group: ['@interop/was-sync/testing', './testing.js', '../testing.js'],
+    group: ['@interop/pws-sync/testing', './testing.js', '../testing.js'],
     message:
-      'The was-sync testing fixtures are test-only: the stub port and memory ' +
-      'ports never reach WAS.'
+      'The pws-sync testing fixtures are test-only: the stub port and memory ' +
+      'ports never reach PWS.'
   }
 ]
 

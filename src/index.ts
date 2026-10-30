@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Interop Alliance. All rights reserved.
  */
 /**
- * The `@interop/was-sync` root entry: the parts of the WAS replication driver
+ * The `@interop/pws-sync` root entry: the parts of the PWS replication driver
  * that carry no RxDB -- the synced-document wire and local shapes, the opaque
  * body helpers, the replica schema, the conflict-handler seam with its
  * last-write-wins default, the writer-id mint, and the logging seam

@@ -1,6 +1,6 @@
 {
-  "name": "@interop/was-sync",
-  "description": "The WAS replication driver for RxDB: the changes-feed pull handler, the conditional-write push handler, the conflict-handler seam, the synced-document schema, and the session controller core.",
+  "name": "@interop/pws-sync",
+  "description": "The PWS replication driver for RxDB: the changes-feed pull handler, the conditional-write push handler, the conflict-handler seam, the synced-document schema, and the session controller core.",
   "version": "0.11.0",
   "type": "module",
   "scripts": {
@@ -88,7 +88,7 @@
   },
   "keywords": [
     "isomorphic",
-    "wallet-attached-storage",
+    "portable-web-spaces",
     "replication",
     "rxdb",
     "sync",
@@ -105,8 +105,8 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/interop-alliance/was-sync.git"
+    "url": "git+https://github.com/interop-alliance/pws-sync.git"
   },
-  "homepage": "https://github.com/interop-alliance/was-sync",
-  "bugs": "https://github.com/interop-alliance/was-sync/issues"
+  "homepage": "https://github.com/interop-alliance/pws-sync",
+  "bugs": "https://github.com/interop-alliance/pws-sync/issues"
 }

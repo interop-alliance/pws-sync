@@ -11,7 +11,7 @@ them.
 
 ## Layer map
 
-`@interop/was-sync` is the WAS replication driver for RxDB. The placement --
+`@interop/pws-sync` is the PWS replication driver for RxDB. The placement --
 what lives here, and what stays in pws-client, social-core, wallet-core, and
 each consuming app -- is decision
 [0001](decisions/0001-rxdb-replication-driver-package.md).
@@ -150,7 +150,7 @@ numbered so items and reviews can cite them.
    quirk: a tombstone has no current representation (which is why `GET` answers
    `404`), and against no representation `If-None-Match: *` is true and
    `If-Match` with any tag is false. Honoring the tombstone's surviving ETag was
-   considered and rejected on 2026-09-07: it would put WAS at odds with the HTTP
+   considered and rejected on 2026-09-07: it would put PWS at odds with the HTTP
    semantics the spec borrows, for a gain confined to one race (a third replica
    re-creating and re-deleting in between), which the changes feed already
    surfaces as later entries for the next pull to reconcile. The `/meta` half of
@@ -272,7 +272,7 @@ numbered so items and reviews can cite them.
     keeps `src/` off it, and each consumer keeps the same restriction on its own
     production globs. The integration suite runs against a live in-process
     `web-spaces-server` through the real pws-client port rather than a fake: a
-    fake is a second implementation of the WAS contract, and the one this
+    fake is a second implementation of the PWS contract, and the one this
     package started with hid bugs by synthesizing a 412 for a header-less
     DELETE, never assigning `createdBy`, and raising error shapes the default
     port does not.
@@ -361,7 +361,7 @@ numbered so items and reviews can cite them.
     echo, and the write-back then stamps nothing, so that deployment gets no new
     window), and a write-back failure that was logged and swallowed.
 
-    The WAS spec is to require a server to expose `ETag` cross-origin, so a
+    The PWS spec is to require a server to expose `ETag` cross-origin, so a
     hidden-`ETag` server is non-conforming. The driver still handles it on a
     best-effort basis. On such a server an echo dropped in the window leaves the
     row without a validator, and its next content edit goes out unconditional.
@@ -428,9 +428,9 @@ numbered so items and reviews can cite them.
 
 ## Ownership heuristics
 
-- **A WAS request, an error class, or a wire name** belongs to
+- **A PWS request, an error class, or a wire name** belongs to
   `@interop/pws-client` (`./sync` for the port, the vocabulary, and the four
-  `err.name` predicates). This package speaks no WAS HTTP itself.
+  `err.name` predicates). This package speaks no PWS HTTP itself.
 - **Which `changes` feed entries reach the driver** belongs to pws-client's sync
   port. The feed carries every record kind of a Collection, discriminated on
   `kind`, and marks a tombstone with `deleted`. Since pws-client 0.89.0 the
@@ -466,10 +466,10 @@ numbered so items and reviews can cite them.
 
 ## Parties to the specs
 
-The WAS spec's "Parties to this contract" table names `@interop/pws-client` as
+The PWS spec's "Parties to this contract" table names `@interop/pws-client` as
 the speaker of the `changes` profile, and this package takes no row of its own:
 every request it makes goes through pws-client's sync port, so by the table's
-admission rule ("speaks the WAS HTTP contract directly") it is a downstream
+admission rule ("speaks the PWS HTTP contract directly") it is a downstream
 consumer like the wallets. The walk recorded at the extraction: pws-client
 unchanged and still the one named speaker; storage-core, web-spaces-server, and
 was-conformance-suite unaffected (no wire byte changes); everything downstream
@@ -490,11 +490,11 @@ byoe-ecosystem layer map instead.
   and a slash, and pws-client's path builders own both rules. Avoid: space id,
   base URL, server URL (these name the pieces a Space URL is built from, not the
   Space).
-- **Driver** -- this package: the RxDB-side implementation of WAS replication.
+- **Driver** -- this package: the RxDB-side implementation of PWS replication.
   Contrast the **engine** (`@interop/wallet-core/sync`), the replica-less
   implementation a mobile wallet drives. Avoid: adapter, sync layer.
 - **Port** -- an injected seam the driver depends on rather than implements: the
-  `WasSyncPort` (WAS access), the storage port (the writer-id mint), and the
+  `WasSyncPort` (PWS access), the storage port (the writer-id mint), and the
   schedule and online source (the controller). Avoid: provider, service.
 - **Logging seam** -- `src/log.ts`: the locally declared `Logger` port and
   `setLogger`; the one place the package's diagnostics leave through. Avoid: log
@@ -549,7 +549,7 @@ byoe-ecosystem layer map instead.
   `meta`) reaches the local row (invariant 18). Avoid: reflection, bounce.
 - **Writer id** -- an unkeyed, clearable attribution label saying which writing
   agent produced a write; it attributes history and breaks last-write-wins ties.
-  On the wire it is the WAS `writerId`, a member of the content record alone,
+  On the wire it is the PWS `writerId`, a member of the content record alone,
   which the push handler declares as the `Writer-Id` header on content writes
   and deletes when the app injects one (invariant 17). The replica row stores
   the feed's label as `SyncedDoc.writerId`, the latest revision's label as the

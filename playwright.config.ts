@@ -21,7 +21,7 @@ export default defineConfig({
   webServer: {
     command: 'pnpm run dev',
     url: `http://localhost:${SMOKE_PORT}/test/index.html`,
-    env: { WAS_SYNC_BROWSER_SMOKE: '1' },
+    env: { PWS_SYNC_BROWSER_SMOKE: '1' },
     reuseExistingServer: !process.env.CI
   }
 })

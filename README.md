@@ -1,9 +1,9 @@
-# WAS Replication Driver for RxDB _(@interop/was-sync)_
+# PWS Replication Driver for RxDB _(@interop/pws-sync)_
 
-[![Node.js CI](https://github.com/interop-alliance/was-sync/workflows/CI/badge.svg)](https://github.com/interop-alliance/was-sync/actions?query=workflow%3A%22CI%22)
-[![NPM Version](https://img.shields.io/npm/v/@interop/was-sync.svg)](https://npm.im/@interop/was-sync)
+[![Node.js CI](https://github.com/interop-alliance/pws-sync/workflows/CI/badge.svg)](https://github.com/interop-alliance/pws-sync/actions?query=workflow%3A%22CI%22)
+[![NPM Version](https://img.shields.io/npm/v/@interop/pws-sync.svg)](https://npm.im/@interop/pws-sync)
 
-> The WAS replication driver for RxDB: the changes-feed pull handler, the
+> The PWS replication driver for RxDB: the changes-feed pull handler, the
 > conditional-write push handler with its conflict assembler, the
 > conflict-handler seam, the synced-document schema, the writer-id mint, and the
 > session controller core. For the browser, Node.js, and React Native.
@@ -19,7 +19,7 @@
 
 ## Background
 
-A WAS Collection is replicated into a local RxDB replica by pulling the
+A PWS Collection is replicated into a local RxDB replica by pulling the
 `changes` feed and pushing conditional writes back. This library owns that
 driver: mapping the feed's wire documents into replica documents and applying
 the checkpoint rule, routing each local change to the content endpoint, the
@@ -47,15 +47,15 @@ and the change engine a replica-less wallet drives instead of RxDB
 
 ### Three entries
 
-- `@interop/was-sync` -- the types, the synced-document schema, the
+- `@interop/pws-sync` -- the types, the synced-document schema, the
   conflict-handler seam and its last-write-wins default, and the writer-id mint.
   Free of RxDB in its module graph AND in its emitted declarations, so an app
   that never builds a replica resolves it with `rxdb` absent.
-- `@interop/was-sync/rxdb` -- the pull and push handlers, the
+- `@interop/pws-sync/rxdb` -- the pull and push handlers, the
   `replicateRxCollection` wiring, the opt-in feed-backed conflict re-read, and
   the controller core. `rxdb` is this subpath's peer dependency (declared
   optional, since only this subpath needs it).
-- `@interop/was-sync/testing` -- test fixtures. It loads without `rxdb` too.
+- `@interop/pws-sync/testing` -- test fixtures. It loads without `rxdb` too.
 
 `@interop/pws-client` is a peer dependency rather than a dependency, so the
 consumer's single range decides which copy resolves. The package constructs none
@@ -93,11 +93,11 @@ The writer id is an unkeyed, clearable, unrecoverable attribution label, never
 an identity: it derives from no secret, and it can vanish and be re-minted with
 nothing carried over.
 
-Test fixtures ship on the `@interop/was-sync/testing` subpath: a stub sync port
+Test fixtures ship on the `@interop/pws-sync/testing` subpath: a stub sync port
 and memory implementations of the controller's timer and reachability ports.
 They are for tests only. Keep the subpath out of production import globs (an
 eslint `no-restricted-imports` pattern is what each consumer uses). There is no
-fake WAS server; the integration suite runs against a live in-process
+fake PWS server; the integration suite runs against a live in-process
 `web-spaces-server`.
 
 ## Install
@@ -109,7 +109,7 @@ fake WAS server; the integration suite runs against a live in-process
 To install via PNPM:
 
 ```
-pnpm install @interop/was-sync
+pnpm install @interop/pws-sync
 ```
 
 An app that builds a local replica also installs the `rxdb` peer:
@@ -123,8 +123,8 @@ pnpm install rxdb
 To install locally (for development):
 
 ```
-git clone https://github.com/interop-alliance/was-sync.git
-cd was-sync
+git clone https://github.com/interop-alliance/pws-sync.git
+cd pws-sync
 pnpm install
 ```
 
@@ -133,7 +133,7 @@ pnpm install
 The schema and the conflict handler are collection-creation options:
 
 ```ts
-import { makeLwwConflictHandler, syncedDocSchema } from '@interop/was-sync'
+import { makeLwwConflictHandler, syncedDocSchema } from '@interop/pws-sync'
 
 await database.addCollections({
   contacts: {
@@ -150,7 +150,7 @@ await database.addCollections({
 A whole session's replication runs behind the controller core:
 
 ```ts
-import { createSyncController } from '@interop/was-sync/rxdb'
+import { createSyncController } from '@interop/pws-sync/rxdb'
 
 const controller = createSyncController({
   port: {
@@ -180,7 +180,7 @@ await controller.stop()
 different rates and a package default would silently change one app's background
 request rate.
 
-An optional `writerId` (also accepted by `createWasReplication`) is the WAS
+An optional `writerId` (also accepted by `createWasReplication`) is the PWS
 writer-attribution label. When it is set, every content write and delete
 declares it as the `Writer-Id` header. A metadata write sends none, because the
 label belongs to the content record alone. When it is absent, content writes and
@@ -200,12 +200,12 @@ replaces it, so it is no proof of who made a local edit.
 The package logs through a structural `Logger` port (four two-arg methods:
 `debug`, `info`, `warn`, `error`, each taking a static message and an optional
 `data` object, with `data.err` reserved for an Error). An app that never wires
-one gets a console fallback prefixed `[was-sync]`. To route the package's events
+one gets a console fallback prefixed `[pws-sync]`. To route the package's events
 into the app's own sinks, install a logger once at bootstrap:
 
 ```ts
 import { createLogger } from '@interop/logger'
-import { setLogger } from '@interop/was-sync'
+import { setLogger } from '@interop/pws-sync'
 
 setLogger(createLogger('sync'))
 ```

@@ -7,7 +7,7 @@
   server replaced the per-record revision counter with a stamp minted at the
   writing origin, and the `/meta` record's own stamp travels as one nested
   object on every wire document.
-- Affects: `@interop/was-sync` (the replica schema, `SyncedDoc`, the pull
+- Affects: `@interop/pws-sync` (the replica schema, `SyncedDoc`, the pull
   mapping, the feed primary read, the conflict entry, the default equality); the
   consumers that persist the replica schema (`@interop/was-react`, the
   Freewallet browser wallet).

@@ -53,7 +53,7 @@ export interface SyncedDocSchema {
 }
 
 /**
- * Returns the synced-doc schema. `id` is the primary key (the WAS resourceId);
+ * Returns the synced-doc schema. `id` is the primary key (the PWS resourceId);
  * the `updatedAt` index is part of the stored schema (below) and so stays
  * although the driver no longer sorts or resumes by it.
  *

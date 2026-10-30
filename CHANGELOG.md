@@ -1,9 +1,13 @@
-# @interop/was-sync Changelog
+# @interop/pws-sync Changelog
 
 ## 0.12.0 - TBD
 
 ### Changed
 
+- Breaking: rename the package from `@interop/was-sync` to `@interop/pws-sync`,
+  following the spec's rename to Portable Web Spaces. The `./rxdb` and
+  `./testing` subpaths move with it.
+- The console fallback logger's prefix is now `[pws-sync]`.
 - Breaking: the `@interop/was-client` peer is now `@interop/pws-client`
   (`>=0.104.0 <1.0.0`). `createSyncController`'s `port.wasClient` takes a
   `PwsClient`, and an injected port signals conflict, not-found, auth, and

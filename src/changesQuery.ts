@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Interop Alliance. All rights reserved.
  */
 /**
- * The pull side of the WAS replication driver: the `changes`-feed request and
+ * The pull side of the PWS replication driver: the `changes`-feed request and
  * response mapping, and the RxDB pull handler built from it. Maps each wire
  * document (`{ id, _deleted, updatedAt, updatedAtCounter, originId, meta?,
  * data?, custom?, epoch?, createdBy?, writerId?, etag?, metaEtag? }`) into an
