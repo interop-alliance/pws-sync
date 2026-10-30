@@ -34,7 +34,7 @@ it from production code (an eslint rule enforces that inside `src/`, and each
 consumer keeps the same restriction). The stub port refuses every call and the
 memory ports never fire on their own, so a production import would leave a
 replica that never syncs. There is no fake WAS server: the integration suite
-runs against a live in-process `was-teaching-server` (a devDependency from the
+runs against a live in-process `web-spaces-server` (a devDependency from the
 registry), so the server's real conditional-write, tombstone, and feed behavior
 is what the driver is tested against. A fake would be a second implementation of
 the WAS contract maintained here, and the one this package started with had
@@ -69,8 +69,8 @@ Do not add test files to `tsconfig.json` — they would be emitted into `dist/`.
   the checkpoint suite drives a real RxDB memory-storage collection against a
   fake port issuing opaque string checkpoints, since RxDB's checkpoint stacking
   is the layer that would mangle them; the integration suite drives a real RxDB
-  memory-storage collection against a live in-process `was-teaching-server`,
-  over the real `createPwsSyncPort` from `@interop/pws-client` on its default
+  memory-storage collection against a live in-process `web-spaces-server`, over
+  the real `createPwsSyncPort` from `@interop/pws-client` on its default
   configuration, with one plaintext collection provisioned per test; the
   controller suite mocks `wasReplication.js`, so it exercises the lifecycle
   without opening a database.

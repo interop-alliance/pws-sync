@@ -3,7 +3,7 @@
  */
 /**
  * Integration test: drives the driver through a REAL RxDB collection (memory
- * storage) against a REAL in-process was-teaching-server, over the sync port
+ * storage) against a REAL in-process web-spaces-server, over the sync port
  * `@interop/pws-client` builds (`createPwsSyncPort`, default configuration).
  * It proves the full replication machine -- schema, checkpoint iteration,
  * `deletedField`, push/pull round-trips -- rather than the handlers in
@@ -19,7 +19,10 @@ import { randomUUID } from 'node:crypto'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { createRxDatabase, type RxDatabase } from 'rxdb/plugins/core'
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory'
-import { openTempBackend, startTestServer } from 'was-teaching-server/testing'
+import {
+  openTempBackend,
+  startTestServer
+} from '@interop/web-spaces-server/testing'
 import { Ed25519VerificationKey } from '@interop/ed25519-verification-key'
 import { captureLogger } from '@interop/logger'
 import { PwsClient } from '@interop/pws-client'
@@ -58,19 +61,19 @@ let collectionSerial = 0
 beforeAll(async () => {
   // The server owns the temp backend, so closing it removes the data dir.
   // Zcap invocation targets embed the port, so the client is built from the
-  // `serverUrl` the boot returns (the base server URL).
+  // `baseServerUrl` the boot returns.
   server = await startTestServer({
     backend: await openTempBackend({
       prefix: 'was-sync-integration-',
       capacityBytes: Infinity
     })
   })
-  const { serverUrl } = server
+  const { baseServerUrl } = server
 
   const keyPair = await Ed25519VerificationKey.generate({ seed: SEED })
   controllerDid = `did:key:${keyPair.fingerprint()}`
   pws = PwsClient.fromSigner({
-    baseServerUrl: serverUrl,
+    baseServerUrl,
     signer: keyPair.didKeySigner()
   })
   spaceUrl = pws.space(deriveSpaceId(controllerDid)).url
@@ -314,7 +317,7 @@ async function eventually(
   throw new Error('Condition not met within timeout.')
 }
 
-describe('WAS replication (RxDB + live was-teaching-server)', () => {
+describe('WAS replication (RxDB + live web-spaces-server)', () => {
   it('pushes a locally-inserted document to the server', async () => {
     const collection = await openCollection()
     const { port, observer } = await openServerCollection()

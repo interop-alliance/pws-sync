@@ -271,7 +271,7 @@ numbered so items and reviews can cite them.
     production import would leave a replica that never syncs. The eslint config
     keeps `src/` off it, and each consumer keeps the same restriction on its own
     production globs. The integration suite runs against a live in-process
-    `was-teaching-server` through the real pws-client port rather than a fake: a
+    `web-spaces-server` through the real pws-client port rather than a fake: a
     fake is a second implementation of the WAS contract, and the one this
     package started with hid bugs by synthesizing a 412 for a header-less
     DELETE, never assigning `createdBy`, and raising error shapes the default
@@ -471,13 +471,13 @@ the speaker of the `changes` profile, and this package takes no row of its own:
 every request it makes goes through pws-client's sync port, so by the table's
 admission rule ("speaks the WAS HTTP contract directly") it is a downstream
 consumer like the wallets. The walk recorded at the extraction: pws-client
-unchanged and still the one named speaker; storage-core, was-teaching-server,
-and was-conformance-suite unaffected (no wire byte changes); everything
-downstream gains this package as one more consumer through pws-client, with no
-row text change; and in the encrypted-collections spec the `@interop/was-react`
-row is confirmed rather than rewritten, since the document cipher stays there
-and this package holds none. The package's node and its `rxdb` edge belong to
-the byoe-ecosystem layer map instead.
+unchanged and still the one named speaker; storage-core, web-spaces-server, and
+was-conformance-suite unaffected (no wire byte changes); everything downstream
+gains this package as one more consumer through pws-client, with no row text
+change; and in the encrypted-collections spec the `@interop/was-react` row is
+confirmed rather than rewritten, since the document cipher stays there and this
+package holds none. The package's node and its `rxdb` edge belong to the
+byoe-ecosystem layer map instead.
 
 ## Glossary
 

@@ -58,6 +58,7 @@
     "@interop/ed25519-verification-key": "^8.2.2",
     "@interop/logger": "^0.2.0",
     "@interop/pws-client": "^0.104.0",
+    "@interop/web-spaces-server": "^0.45.0",
     "@playwright/test": "^1.60.0",
     "@types/node": "^26.0.1",
     "@vitest/coverage-v8": "^4.1.7",
@@ -70,8 +71,7 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.4",
     "vite": "^8.0.14",
-    "vitest": "^4.1.7",
-    "was-teaching-server": "^0.42.2"
+    "vitest": "^4.1.7"
   },
   "peerDependencies": {
     "@interop/pws-client": ">=0.104.0 <1.0.0",

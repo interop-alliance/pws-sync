@@ -2,4 +2,3 @@ allowBuilds:
   core-js: false
 minimumReleaseAgeExclude:
   - '@interop/*'
-  - 'was-teaching-server*'

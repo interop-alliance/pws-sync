@@ -28,8 +28,8 @@ in [AGENTS.md](AGENTS.md) under "Roadmap & Task Conventions".
 - priority: low
 - labels: api, port, was-react
 - touches:
-  - pws-client (`createPwsSyncPort` takes the same `spaceUrl` beside `pws`;
-    the same default applies there)
+  - pws-client (`createPwsSyncPort` takes the same `spaceUrl` beside `pws`; the
+    same default applies there)
   - was-react (`SyncController` passes `remoteStore.spaceUrl` beside
     `remoteStore.was`; once the default lands, `WasRemoteStore.spaceUrl` can
     read `was.spaceUrl` instead of storing a second copy)

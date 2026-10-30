@@ -98,7 +98,7 @@ and memory implementations of the controller's timer and reachability ports.
 They are for tests only. Keep the subpath out of production import globs (an
 eslint `no-restricted-imports` pattern is what each consumer uses). There is no
 fake WAS server; the integration suite runs against a live in-process
-`was-teaching-server`.
+`web-spaces-server`.
 
 ## Install
 

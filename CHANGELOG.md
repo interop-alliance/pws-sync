@@ -10,6 +10,9 @@
   checkpoint failures with the `PwsSync*Error` names, since the
   `@interop/pws-client/sync` predicates no longer match the `WasSync*Error`
   names.
+- Tests: the integration suite boots through
+  `@interop/web-spaces-server/testing` (`^0.45.0`), the renamed
+  `was-teaching-server`.
 
 ## 0.11.0 - 2026-10-29
 
