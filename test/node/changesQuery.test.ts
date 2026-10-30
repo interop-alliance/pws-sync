@@ -3,7 +3,7 @@
  */
 /**
  * Unit tests for the pull side of the sync adapter (the `changes`-feed mapping
- * and pull handler), driven by a fake WAS port -- no server, no RxDB engine.
+ * and pull handler), driven by a fake PWS port -- no server, no RxDB engine.
  */
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import { PwsSyncCheckpointError } from '@interop/pws-client/sync'

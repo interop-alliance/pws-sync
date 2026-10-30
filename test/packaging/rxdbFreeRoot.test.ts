@@ -7,7 +7,7 @@
  *
  * The root entry's RxDB-freedom is a packaging contract rather than a style
  * preference. A consumer that reads shared collections without ever building a
- * replica must resolve `@interop/was-sync` with `rxdb` absent, and a missing
+ * replica must resolve `@interop/pws-sync` with `rxdb` absent, and a missing
  * package is a module-resolution failure rather than something a bundler drops.
  * The declarations matter as much as the runtime graph: every consumer compiles
  * with `skipLibCheck`, so an `import type ... from 'rxdb/plugins/core'`

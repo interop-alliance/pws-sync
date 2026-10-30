@@ -2,11 +2,11 @@
 
 - Status: accepted
 - Date: 2026-09-05
-- Driving work: the extraction of the WAS replication driver for RxDB from the
+- Driving work: the extraction of the PWS replication driver for RxDB from the
   two apps that each held a copy of it, on the design approved 2026-09-05. This
   record is the package's own half of that placement; the consuming wallet
   recorded its half at the same approval.
-- Affects: `@interop/was-sync` (this package), `@interop/was-react` (its
+- Affects: `@interop/pws-sync` (this package), `@interop/was-react` (its
   `src/sync/` deleted, its storage modules reduced to bindings, its root barrel
   narrowed), the Freewallet browser wallet (`src/lib/sync/` deleted, its sync
   controller reduced to a session binding), `@interop/pws-client` (a peer of
@@ -15,7 +15,7 @@
 
 ## Context
 
-The WAS replication driver for RxDB existed twice. One copy lived in the
+The PWS replication driver for RxDB existed twice. One copy lived in the
 Freewallet browser wallet under `src/lib/sync/`; a more developed one lived in
 `@interop/was-react` under `src/sync/`. They were forked from one origin and had
 drifted: the was-react copy grew four modules the wallet's lacked, the two push
@@ -36,7 +36,7 @@ statically, so the controller must not drag `rxdb` into the eager bundle chunk.
 
 ## Decision
 
-The driver lives in `@interop/was-sync`, built from the was-react copy with the
+The driver lives in `@interop/pws-sync`, built from the was-react copy with the
 wallet's behavioral deltas ported in before the move. Both apps consume it and
 neither keeps a copy.
 
@@ -130,7 +130,7 @@ ciphers, and the session gates stay app-side.
   one tree is the sharp case, because it breaks late and quietly -- the
   leader-election plugin is installed on one copy's prototypes and the failure
   surfaces only when a tab is hidden.
-- No Parties-table row lands in the WAS spec for this package. It speaks no WAS
+- No Parties-table row lands in the PWS spec for this package. It speaks no PWS
   HTTP itself: every request goes through pws-client's sync port, so by the
   table's admission rule it is a downstream consumer like the wallets, and
   pws-client stays the one named speaker of the `changes` profile. The

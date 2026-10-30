@@ -3,7 +3,7 @@
  */
 /**
  * Unit tests for the push side of the sync adapter (conditional-write routing
- * and the 412 conflict assembler), driven by a fake WAS port -- no server, no
+ * and the 412 conflict assembler), driven by a fake PWS port -- no server, no
  * RxDB engine.
  */
 import { describe, it, expect } from 'vitest'
@@ -1421,7 +1421,7 @@ describe('createPushHandler tombstoned assumed primary', () => {
 
 describe('createPushHandler metadata 404 corroboration', () => {
   it('resolves as a conflict tombstone when the primary is gone', async () => {
-    // Under WAS 404-masking a /meta 404 is ambiguous. An independent re-read
+    // Under PWS 404-masking a /meta 404 is ambiguous. An independent re-read
     // says the resource is absent, so this was an ordinary race with a remote
     // delete: report a tombstone conflict (which the conflict handler settles)
     // instead of throwing and wedging the batch. The row returned a conflict

@@ -58,15 +58,15 @@ test('the root entry loads and works in a real browser, with no rxdb', async ({
     })
 
     const writerId = getWriterId({
-      storageKeyPrefix: 'was-sync-smoke:',
+      storageKeyPrefix: 'pws-sync-smoke:',
       storage: localStorage
     })
     const again = getWriterId({
-      storageKeyPrefix: 'was-sync-smoke:',
+      storageKeyPrefix: 'pws-sync-smoke:',
       storage: localStorage
     })
     clearPersistedWriterId({
-      storageKeyPrefix: 'was-sync-smoke:',
+      storageKeyPrefix: 'pws-sync-smoke:',
       storage: localStorage
     })
 
@@ -76,7 +76,7 @@ test('the root entry loads and works in a real browser, with no rxdb', async ({
       laterRemotePayloadWins: remoteLater.etag === 'remote',
       laterLocalPayloadWins: localLater.etag === 'local',
       writerIdStable: writerId === again && writerId.length > 0,
-      writerIdCleared: localStorage.getItem('was-sync-smoke:writerId') === null
+      writerIdCleared: localStorage.getItem('pws-sync-smoke:writerId') === null
     }
   })
   expect(result).toEqual({

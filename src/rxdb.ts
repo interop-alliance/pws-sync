@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Interop Alliance. All rights reserved.
  */
 /**
- * The `@interop/was-sync/rxdb` entry: the RxDB half of the WAS replication
+ * The `@interop/pws-sync/rxdb` entry: the RxDB half of the PWS replication
  * driver -- the pull and push handlers, the `replicateRxCollection` wiring with
  * its push-ack write-back, the opt-in feed-backed conflict re-read, and the
  * controller core that runs one session's collections.

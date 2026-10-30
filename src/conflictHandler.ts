@@ -214,7 +214,7 @@ type LwwSide =
  * pws-client's own `DocCipher.decrypt`, aliased here so the resolver and
  * whatever cipher a consumer wires agree by construction.
  *
- * The `id` the closure is called with is the addressed WAS resourceId, and it
+ * The `id` the closure is called with is the addressed PWS resourceId, and it
  * is the ROW's own (`SyncedDoc.id`). An id read out of the decrypted body
  * would check the envelope against itself and prove nothing, which is the
  * check's whole point.

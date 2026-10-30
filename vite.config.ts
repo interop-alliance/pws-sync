@@ -13,7 +13,7 @@ export const SMOKE_PORT = 5791
  * resolves every `rxdb` and `rxdb/*` import to a module that throws when
  * evaluated. Vitest never sets it, and the node suites import `rxdb` freely.
  */
-const SMOKE = process.env.WAS_SYNC_BROWSER_SMOKE === '1'
+const SMOKE = process.env.PWS_SYNC_BROWSER_SMOKE === '1'
 
 const BLOCKED_PREFIX = '\0rxdb-unavailable:'
 
@@ -27,7 +27,7 @@ const BLOCKED_PREFIX = '\0rxdb-unavailable:'
  */
 function refuseRxdb() {
   return {
-    name: 'was-sync:refuse-rxdb',
+    name: 'pws-sync:refuse-rxdb',
     enforce: 'pre' as const,
     resolveId(source: string) {
       return /^rxdb(\/|$)/.test(source) ? BLOCKED_PREFIX + source : null

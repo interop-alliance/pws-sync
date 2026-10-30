@@ -34,7 +34,7 @@ describe('the console fallback', () => {
 
     log.warn('x', { a: 1 })
 
-    expect(warn).toHaveBeenCalledWith('[was-sync]', 'x', { a: 1 })
+    expect(warn).toHaveBeenCalledWith('[pws-sync]', 'x', { a: 1 })
   })
 
   it('passes no trailing argument when called with no data', () => {
@@ -42,7 +42,7 @@ describe('the console fallback', () => {
 
     log.debug('x')
 
-    expect(debug).toHaveBeenCalledWith('[was-sync]', 'x')
+    expect(debug).toHaveBeenCalledWith('[pws-sync]', 'x')
   })
 
   it('routes info to console.info', () => {
@@ -50,7 +50,7 @@ describe('the console fallback', () => {
 
     log.info('x', { a: 1 })
 
-    expect(info).toHaveBeenCalledExactlyOnceWith('[was-sync]', 'x', { a: 1 })
+    expect(info).toHaveBeenCalledExactlyOnceWith('[pws-sync]', 'x', { a: 1 })
   })
 
   it('routes error to console.error', () => {
@@ -58,7 +58,7 @@ describe('the console fallback', () => {
 
     log.error('x', { a: 1 })
 
-    expect(error).toHaveBeenCalledExactlyOnceWith('[was-sync]', 'x', { a: 1 })
+    expect(error).toHaveBeenCalledExactlyOnceWith('[pws-sync]', 'x', { a: 1 })
   })
 })
 

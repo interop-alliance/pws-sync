@@ -1,6 +1,6 @@
-# WAS Sync Roadmap (open items)
+# PWS Sync Roadmap (open items)
 
-nextAvailableId: 32
+nextAvailableId: 33
 
 Status as of 2026-09-05. Uses the formalized item structure shared across the
 `@interop/*` repos.
@@ -19,6 +19,38 @@ it. Statuses: `todo`, `in-progress`, `draft` (no actionable done-state yet --
 blocked externally or a parking record); `done` items move to
 [archived-roadmap.md](archived-roadmap.md) once shipped. Full conventions live
 in [AGENTS.md](AGENTS.md) under "Roadmap & Task Conventions".
+
+---
+
+### WS-32: Move the consumers to `@interop/pws-sync`
+
+- status: todo
+- priority: medium
+- labels: packaging, was-react, freewallet
+- touches:
+  - was-react: `package.json`, `eslint.config.js`, `vite.config.ts`,
+    ARCHITECTURE.md, AGENTS.md, README.md, and the `src/` and `test/` imports
+  - freewallet: `package.json`, `tsconfig.app.json`, `vite.config.ts`,
+    `eslint.config.js`, ARCHITECTURE.md, AGENTS.md, and the `src/` imports
+- acceptance:
+  - [ ] `@interop/pws-sync` is published to npm
+  - [ ] was-react depends on `@interop/pws-sync`, with no `@interop/was-sync`
+        import left in its `src/` or `test/`
+  - [ ] freewallet depends on `@interop/pws-sync`, with no `@interop/was-sync`
+        import left in its `src/` or `tests/`
+  - [ ] each `touches:` entry is annotated with its follow-up item or what
+        shipped there
+
+Context: this package was renamed from `@interop/was-sync` to
+`@interop/pws-sync`, but was-react and freewallet still import the old name.
+They could not move with the rename, because the new name is not on npm yet and
+both are still on `@interop/was-client`, while this release requires
+`@interop/pws-client` as a peer. Until they move, the two consumers stay on
+`@interop/was-sync` 0.11.0 and receive no driver changes.
+
+Each consumer moves in the same change as its own `@interop/pws-client`
+migration, since the driver's error matching depends on the `PwsSync*Error`
+names that client raises.
 
 ---
 

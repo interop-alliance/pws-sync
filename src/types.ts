@@ -2,15 +2,15 @@
  * Copyright (c) 2026 Interop Alliance. All rights reserved.
  */
 /**
- * Shared types for the collection-agnostic WAS replication driver.
+ * Shared types for the collection-agnostic PWS replication driver.
  *
- * The driver moves stored bodies between a local replica and a remote WAS
+ * The driver moves stored bodies between a local replica and a remote PWS
  * Collection through the {@link WasSyncPort} seam. Nothing here imports RxDB or
  * `@interop/pws-client` at runtime: the wire model (`Json`, `SyncCheckpoint`,
  * the base primary state, the write acknowledgment) is pws-client's, imported
  * as types only, so a body crosses the port boundary without a cast.
  *
- * The wire contract follows the WAS `changes` feed and its V2
+ * The wire contract follows the PWS `changes` feed and its V2
  * encrypted-metadata profile: a synced document carries both a content record
  * (`data`, stamped `updatedAt` / `updatedAtCounter` / `originId`) and an
  * independently-stamped metadata sub-resource (`custom`, stamped by the nested
@@ -141,7 +141,7 @@ export interface OptionalBodyFields {
   createdBy?: string
   /**
    * The writer-attribution label the latest revision was declared under (the
-   * WAS `writerId`, a member of the content record alone), carried verbatim
+   * PWS `writerId`, a member of the content record alone), carried verbatim
    * off the feed on live documents and tombstones alike, and absent when the
    * server holds none. Advisory and not verified by the server, and it
    * describes the latest revision only. Like the server-minted stamp members,
@@ -271,7 +271,7 @@ export interface ReplicationCheckpoint {
 
 /**
  * One document as it travels on the `changes`-feed wire
- * (`POST /space/:s/:c/query`, profile `changes`). `id` is the WAS resourceId;
+ * (`POST /space/:s/:c/query`, profile `changes`). `id` is the PWS resourceId;
  * `updatedAt`, `updatedAtCounter`, and `originId` are the content record's
  * write stamp and the user content body is nested under `data`; the nested
  * `meta` object is the `/meta` record's own stamp and the user-writable
@@ -378,7 +378,7 @@ export interface PrimaryReadCache {
 export type WriteAck = ClientWriteAck
 
 /**
- * The write/query half of the injected WAS-access seam. pws-client's
+ * The write/query half of the injected PWS-access seam. pws-client's
  * `createPwsSyncPort` implements it; this package depends only on the
  * interface. Every method moves the stored body verbatim -- no codec, no key
  * handling -- so the same port works for plaintext and encrypted collections

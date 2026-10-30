@@ -64,7 +64,7 @@ beforeAll(async () => {
   // `baseServerUrl` the boot returns.
   server = await startTestServer({
     backend: await openTempBackend({
-      prefix: 'was-sync-integration-',
+      prefix: 'pws-sync-integration-',
       capacityBytes: Infinity
     })
   })
@@ -317,7 +317,7 @@ async function eventually(
   throw new Error('Condition not met within timeout.')
 }
 
-describe('WAS replication (RxDB + live web-spaces-server)', () => {
+describe('PWS replication (RxDB + live web-spaces-server)', () => {
   it('pushes a locally-inserted document to the server', async () => {
     const collection = await openCollection()
     const { port, observer } = await openServerCollection()

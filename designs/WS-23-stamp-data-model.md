@@ -65,7 +65,7 @@ Where the shared packages stand (checked 2026-10-03):
   per-store origin id only. WSS-172 (the stamp) and WSS-182 (the widened feed)
   are both `todo`. The integration suite runs against the live server from the
   registry, so this item cannot go green before that release.
-- The WAS spec has no stamp text yet and still documents `version` /
+- The PWS spec has no stamp text yet and still documents `version` /
   `metaVersion` and the `(updatedAt, writerId)` tie-break.
 
 WS-17 changes the ack after this item lands (decided 2026-10-03): the write
@@ -180,9 +180,9 @@ payload-stamp order") is renamed in the same change set.
 
 Produced by
 `grep -n 'version\|metaVersion\|revision' src/*.ts test/**/*.ts README.md ARCHITECTURE.md CHANGELOG.md designs/*.md decisions/*.md`
-in was-sync, the same grep over was-react `src/`, freewallet `src/`, dcw `app/`,
+in pws-sync, the same grep over was-react `src/`, freewallet `src/`, dcw `app/`,
 wallet-core `src/sync/`, was-client `src/sync/`, was-conformance-suite `src/`,
-and the WAS spec, plus the roadmap item's `touches:` list. Re-run and extended
+and the PWS spec, plus the roadmap item's `touches:` list. Re-run and extended
 by the review pass on 2026-10-03.
 
 Driver, `src/` (code):
@@ -236,7 +236,7 @@ Driver, tests: `test/node/pushWrites.test.ts` (155 occurrences),
 `changesQuery.test.ts` (19), `feedPrimaryPort.test.ts` (17),
 `syncedDocSchema.test.ts` (6), `replicationAck.test.ts` (5),
 `replicationCheckpoint.test.ts` (1), `types.test.ts` (`metaVersion: 3` at
-`:74,83`, missed by the lowercase grep), and `test/browser/wasSync.spec.ts`
+`:74,83`, missed by the lowercase grep), and `test/browser/pwsSync.spec.ts`
 (`:27-30` fixtures carry `version`, `:56` asserts `winner.version === 2`, which
 would read `undefined` and fail). `test/packaging/rxdbFreeRoot.test.ts:103`
 reads the RxDB schema `version` and is unaffected.
@@ -291,7 +291,7 @@ Shared packages:
   `src/storage/wasRemoteStore.ts:95`, `:423`, and was-react's ARCHITECTURE.md.
   was-react is on was-sync `^0.5.1` and was-client `^0.74.0`, so it catches up
   two minors before taking this release.
-- dcw: not a was-sync consumer (no `rxdb` or `@interop/was-sync` dependency). It
+- dcw: not a pws-sync consumer (no `rxdb` or `@interop/pws-sync` dependency). It
   drives wallet-core's engine over SQLite with its own
   `version INTEGER NOT NULL DEFAULT 0` / `metaVersion INTEGER` columns
   (`app/model/schema.ts:126-127`, `syncedDoc.ts`, `syncStore.ts`) and fake ports
@@ -579,7 +579,7 @@ separate):
   (`:964-990`), whose wrapper strips `version` / `metaVersion` off the primary,
   would pass vacuously and is reframed to strip `updatedAtCounter`, `originId`,
   and `meta` (the hidden-stamp primary).
-- `test/browser/wasSync.spec.ts`: fixtures drop `version`; the winner
+- `test/browser/pwsSync.spec.ts`: fixtures drop `version`; the winner
   discriminator becomes the payload's `updatedAt` (or `etag`), so the smoke
   still proves the resolver ran.
 - `test/packaging/`: stays green; no root-graph change beyond a type import.

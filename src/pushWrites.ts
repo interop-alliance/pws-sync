@@ -2,8 +2,8 @@
  * Copyright (c) 2026 Interop Alliance. All rights reserved.
  */
 /**
- * The push side of the WAS replication adapter: fans each local change out to
- * conditional WAS writes and assembles the RxDB conflict entry when the server
+ * The push side of the PWS replication adapter: fans each local change out to
+ * conditional PWS writes and assembles the RxDB conflict entry when the server
  * rejects a write with `412`.
  *
  * A single RxDB document spans two independently-stamped sub-resources: the
@@ -117,7 +117,7 @@
  * A spec-conformant server answers `204` for an authorized delete of a resource
  * it does not hold (a row deleted locally before its create ever landed, or one
  * another replica deleted first), so a `404` on this path is either a server
- * that does not treat delete as idempotent or WAS's masked authorization
+ * that does not treat delete as idempotent or PWS's masked authorization
  * refusal. Either way the tombstone's goal state cannot be advanced by a retry:
  * a rethrow would reject the whole batch and RxDB would re-send it unchanged
  * forever, so no other row in the batch could reach the server. pws-client's
@@ -144,7 +144,7 @@
  * discard the resolver's decision.
  *
  * Every content write and delete carries the injected `writerId`, when one was
- * injected, as the `Writer-Id` header on `PUT /:id` and `DELETE /:id` (the WAS
+ * injected, as the `Writer-Id` header on `PUT /:id` and `DELETE /:id` (the PWS
  * writer-attribution label). A `PUT /:id/meta` sends none: the label is a
  * member of the content record alone, and a metadata write leaves it as it is.
  * The label is minted app-side; this handler never mints, persists, or derives
@@ -593,7 +593,7 @@ async function pushRow({
       if (isSyncConflictError(err)) {
         return await conflictResult()
       }
-      // Corroborate before condemnation: under WAS 404-masking a `/meta` 404
+      // Corroborate before condemnation: under PWS 404-masking a `/meta` 404
       // is ambiguous -- expired access, or an ordinary race with a remote
       // delete (a PUT to the `/meta` of a nonexistent resource legitimately
       // 404s). The default port raises it as the not-found signal, a
@@ -629,7 +629,7 @@ async function pushRow({
 
 /**
  * Builds the RxDB push handler that fans a batch of local changes out to
- * conditional WAS writes and returns the conflicting rows' primary states.
+ * conditional PWS writes and returns the conflicting rows' primary states.
  *
  * Rows are pushed concurrently, and every row settles before the batch is
  * judged: if any row threw a non-conflict error the whole batch then rejects

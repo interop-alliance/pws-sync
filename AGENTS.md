@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-`@interop/was-sync` is the WAS replication driver for RxDB: the changes-feed
+`@interop/pws-sync` is the PWS replication driver for RxDB: the changes-feed
 pull handler, the conditional-write push handler with its conflict assembler and
 benign-412 delete retry, the conflict-handler seam, the synced-document schema,
 the writer-id mint, the logging seam, and the session controller core. It was
@@ -20,7 +20,7 @@ carries everything that needs the peer; `./testing` carries the fixtures. A
 change that puts an `rxdb` import (a type import included) anywhere the root
 entry reaches breaks the contract, and `test/packaging/` is what catches it.
 
-What does NOT belong here: WAS HTTP, the sync port, the wire vocabulary, the
+What does NOT belong here: PWS HTTP, the sync port, the wire vocabulary, the
 error classes, and the `err.name` predicates (`@interop/pws-client`, its `/sync`
 subpath); the last-write-wins comparison rule (`@interop/social-core`); ciphers,
 key epochs, and any other key handling (`@interop/pws-client/edv` and each
@@ -33,11 +33,11 @@ The `./testing` subpath (`src/testing.ts`) is test fixtures only; never import
 it from production code (an eslint rule enforces that inside `src/`, and each
 consumer keeps the same restriction). The stub port refuses every call and the
 memory ports never fire on their own, so a production import would leave a
-replica that never syncs. There is no fake WAS server: the integration suite
+replica that never syncs. There is no fake PWS server: the integration suite
 runs against a live in-process `web-spaces-server` (a devDependency from the
 registry), so the server's real conditional-write, tombstone, and feed behavior
 is what the driver is tested against. A fake would be a second implementation of
-the WAS contract maintained here, and the one this package started with had
+the PWS contract maintained here, and the one this package started with had
 already drifted from the server in ways that hid bugs.
 
 ## Toolchain & Project Layout
@@ -226,7 +226,7 @@ AGENTS.md ("Releasing"), restated here for the parts this package exercises:
   CHANGELOG carries a breaking entry, audit the ARCHITECTURE/AGENTS files of the
   consumers named in the affected contract's "Parties to this contract" registry
   (the AGENTS.md tables in app-connect-spec, encrypted-collections-spec, and the
-  WAS spec repo), and file roadmap items for what the audit finds. The cheap
+  PWS spec repo), and file roadmap items for what the audit finds. The cheap
   mechanism, as run 2026-08-11: parallel read-only agents, one per consumer
   repo, each checking that repo's ARCHITECTURE/AGENTS statements against its own
   code and the new contract -- a recipe, not an aspiration. A consumer with

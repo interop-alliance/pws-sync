@@ -1,4 +1,4 @@
-# WAS Sync Roadmap -- archived (completed) items
+# PWS Sync Roadmap -- archived (completed) items
 
 Completed items from [ROADMAP.md](ROADMAP.md), moved here verbatim when they
 ship so that item-number references (WS-N) in the active roadmap, commit

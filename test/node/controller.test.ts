@@ -234,7 +234,7 @@ describe('createSyncController lifecycle', () => {
       port: {
         wasClient,
         spaceUrl,
-        // Two registry entries may share one WAS id, so the callback carries
+        // Two registry entries may share one PWS id, so the callback carries
         // both and neither binding has to map.
         collections: [{ key: 'wallet-notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never
@@ -608,7 +608,7 @@ describe('createSyncController error escalation', () => {
           errors: [
             {
               name: 'PwsSyncAuthError',
-              message: 'WAS storage access denied (HTTP 403).'
+              message: 'PWS storage access denied (HTTP 403).'
             }
           ]
         }

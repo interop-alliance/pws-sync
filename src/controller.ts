@@ -2,11 +2,11 @@
  * Copyright (c) 2026 Interop Alliance. All rights reserved.
  */
 /**
- * The controller core: the lifecycle around background WAS replication for one
+ * The controller core: the lifecycle around background PWS replication for one
  * session's set of collections.
  *
  * A local replica is the always-on active copy; `start()` spins up one
- * `replicateRxCollection` state machine per collection against the remote WAS
+ * `replicateRxCollection` state machine per collection against the remote PWS
  * Space. Reachability is not probed separately -- the replication attempt is the
  * probe, and RxDB's `retryTime` backoff retries a down server and surfaces
  * failures on `error$`. Two explicit wires remain: the injected online source,
@@ -14,7 +14,7 @@
  * promptly rather than waiting out the backoff, and the poll timer, which
  * re-runs the pull cycle because the server offers no live change stream yet.
  *
- * Everything that varies by app is injected. The collection set, the WAS
+ * Everything that varies by app is injected. The collection set, the PWS
  * client, the delegated capabilities, and the local collection handles arrive
  * through one `port` object; status goes out through `onStatus` rather than into
  * a store, so a state-management library stays app-side; the online source and
@@ -87,7 +87,7 @@ const defaultSchedule: SyncSchedule = {
 
 /**
  * Whether a replication error signals expired or revoked storage access. Every
- * WAS request the replication makes funnels through the sync port, which (under
+ * PWS request the replication makes funnels through the sync port, which (under
  * `mapAuthErrors`) maps a `401` / `403` / masked `404` to pws-client's
  * `PwsSyncAuthError` at the boundary, so this looks for that signal rather than
  * re-extracting raw status codes.
@@ -153,7 +153,7 @@ export function isAuthError(err: unknown): boolean {
  * apps naming the same Collection agree. Changing its shape orphans every
  * replica's persisted checkpoint.
  *
- * Each `collections` entry names a LOGICAL key, the WAS collection id, and
+ * Each `collections` entry names a LOGICAL key, the PWS collection id, and
  * optionally the delegated capability every request for that collection
  * invokes. `rxCollection` resolves the local end by logical key.
  *
@@ -184,7 +184,7 @@ export function isAuthError(err: unknown): boolean {
  * @param [options.onlineSource] {SyncOnlineSource}
  * @param options.pollMs {number}                     0 disables the poll timer
  * @param [options.writerId] {string}   this replica's writer-attribution label
- *   (the WAS `writerId`), minted and kept app-side (the root entry's `getWriterId`
+ *   (the PWS `writerId`), minted and kept app-side (the root entry's `getWriterId`
  *   for a helper); the driver never mints, persists, or derives one. When
  *   present, every content write and delete in every collection declares it
  *   as the `Writer-Id` header (a metadata write sends none). When absent, pushes
