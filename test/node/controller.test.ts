@@ -17,8 +17,8 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureLogger } from '@interop/logger'
-import type { WasClient } from '@interop/was-client'
-import { isSyncAuthError, WasSyncAuthError } from '@interop/was-client/sync'
+import type { PwsClient } from '@interop/pws-client'
+import { isSyncAuthError, PwsSyncAuthError } from '@interop/pws-client/sync'
 import { memoryOnlineSource, memorySchedule } from '../../src/testing.js'
 import { setLogger } from '../../src/log.js'
 import type { WasSyncPort } from '../../src/types.js'
@@ -104,13 +104,13 @@ function throwingSubscribeReplication(cancelOrder: string[], name: string) {
 }
 
 /**
- * A WAS client that records what each sync-port call hands it: the capability
+ * A PWS client that records what each sync-port call hands it: the capability
  * on the collection handle the feed reads through, the feed reads themselves,
  * and every direct request. Every request rejects with a `403`, so a test can
  * read back which signal the port mapped it to.
  */
-function recordingWasClient(): {
-  client: WasClient
+function recordingPwsClient(): {
+  client: PwsClient
   collectionCapabilities: unknown[]
   changesCalls: () => number
   requests: Array<{ capability?: unknown; method: string; path: string }>
@@ -127,7 +127,7 @@ function recordingWasClient(): {
       collection: (_id: string, options: { capability?: unknown }) => {
         collectionCapabilities.push(options.capability)
         return {
-          // was-client 0.89.0's sync port walks the feed through
+          // pws-client 0.89.0's sync port walks the feed through
           // `resourceChanges()`, one page per iteration; an empty feed is one
           // page with `checkpoint: null`.
           resourceChanges: async function* () {
@@ -145,7 +145,7 @@ function recordingWasClient(): {
       requests.push(request)
       throw Object.assign(new Error('forbidden'), { status: 403 })
     }
-  } as unknown as WasClient
+  } as unknown as PwsClient
   return {
     client,
     collectionCapabilities,
@@ -165,12 +165,12 @@ function handedPort(callIndex = 0): WasSyncPort {
 }
 
 /**
- * A WAS client the sync port can be constructed over. Port construction is
+ * A PWS client the sync port can be constructed over. Port construction is
  * I/O-free, and nothing here is ever called.
  */
 const wasClient = {
   spaceAt: () => ({ collection: () => ({}) })
-} as unknown as WasClient
+} as unknown as PwsClient
 
 /**
  * The canonical Space URL every port below names; the one test that exercises
@@ -587,7 +587,7 @@ describe('createSyncController error escalation', () => {
 
     replication.error$.emit({
       code: 'RC_PULL',
-      parameters: { errors: [new WasSyncAuthError(403)] }
+      parameters: { errors: [new PwsSyncAuthError(403)] }
     })
     expect(onAuthError).toHaveBeenCalledOnce()
     expect(statuses).toContain('error')
@@ -607,14 +607,14 @@ describe('createSyncController error escalation', () => {
         parameters: {
           errors: [
             {
-              name: 'WasSyncAuthError',
+              name: 'PwsSyncAuthError',
               message: 'WAS storage access denied (HTTP 403).'
             }
           ]
         }
       })
     ).toBe(true)
-    expect(isAuthError({ cause: { cause: new WasSyncAuthError(401) } })).toBe(
+    expect(isAuthError({ cause: { cause: new PwsSyncAuthError(401) } })).toBe(
       true
     )
     expect(isAuthError(new Error('network down'))).toBe(false)
@@ -659,7 +659,7 @@ describe('createSyncController remote change', () => {
 
 describe('createSyncController sync port', () => {
   function build(
-    client: WasClient,
+    client: PwsClient,
     options: {
       capability?: unknown
       feedPrimaryRead?: boolean
@@ -694,47 +694,47 @@ describe('createSyncController sync port', () => {
   }
 
   it('resolves the conflict re-read from the changes feed under feedPrimaryRead', async () => {
-    const was = recordingWasClient()
-    const controller = build(was.client, { feedPrimaryRead: true })
+    const pws = recordingPwsClient()
+    const controller = build(pws.client, { feedPrimaryRead: true })
     await controller.start()
 
     // The feed-read wrapper answers `get` by walking the feed, never by a
     // direct GET whose ETag header CORS may hide.
     expect(await handedPort().get({ id: 'r1' })).toBeNull()
-    expect(was.changesCalls()).toBe(1)
-    expect(was.requests).toEqual([])
+    expect(pws.changesCalls()).toBe(1)
+    expect(pws.requests).toEqual([])
     await controller.stop()
   })
 
   it('hands the base port through when feedPrimaryRead is off', async () => {
-    const was = recordingWasClient()
-    const controller = build(was.client, { feedPrimaryRead: false })
+    const pws = recordingPwsClient()
+    const controller = build(pws.client, { feedPrimaryRead: false })
     await controller.start()
 
     // The base port's own `get` issues direct GETs and never reads the feed.
     await expect(handedPort().get({ id: 'r1' })).rejects.toThrow()
-    expect(was.changesCalls()).toBe(0)
-    expect(was.requests.map(request => request.method)).toContain('GET')
+    expect(pws.changesCalls()).toBe(0)
+    expect(pws.requests.map(request => request.method)).toContain('GET')
     await controller.stop()
   })
 
   it('invokes the collection capability on every request the port makes', async () => {
-    const was = recordingWasClient()
+    const pws = recordingPwsClient()
     const capability = { id: 'urn:zcap:notes' }
-    const controller = build(was.client, { capability })
+    const controller = build(pws.client, { capability })
     await controller.start()
 
     await expect(
       handedPort().putContent({ id: 'r1', data: { a: 1 } })
     ).rejects.toThrow()
-    expect(was.collectionCapabilities).toEqual([capability])
-    expect(was.requests).toHaveLength(1)
-    expect(was.requests[0]!.capability).toBe(capability)
+    expect(pws.collectionCapabilities).toEqual([capability])
+    expect(pws.requests).toHaveLength(1)
+    expect(pws.requests[0]!.capability).toBe(capability)
     await controller.stop()
   })
 
   it('asks the port for typed auth signals under mapAuthErrors, and not without it', async () => {
-    const mapped = recordingWasClient()
+    const mapped = recordingPwsClient()
     const mapping = build(mapped.client, { mapAuthErrors: true })
     await mapping.start()
     const mappedErr = await handedPort(0)
@@ -742,7 +742,7 @@ describe('createSyncController sync port', () => {
       .catch((err: unknown) => err)
     await mapping.stop()
 
-    const unmapped = recordingWasClient()
+    const unmapped = recordingPwsClient()
     const plain = build(unmapped.client)
     await plain.start()
     const plainErr = await handedPort(1)

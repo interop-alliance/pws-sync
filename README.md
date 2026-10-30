@@ -37,11 +37,11 @@ depend on the other. The placement is recorded in
 [decisions/0001](decisions/0001-rxdb-replication-driver-package.md) and the
 current shape in [ARCHITECTURE.md](ARCHITECTURE.md).
 
-What deliberately lives elsewhere: the WAS HTTP client, the sync port, the wire
+What deliberately lives elsewhere: the PWS HTTP client, the sync port, the wire
 vocabulary, the error classes, and the `err.name` predicates that classify them
-(`@interop/was-client`, its `/sync` subpath); the last-write-wins comparison
+(`@interop/pws-client`, its `/sync` subpath); the last-write-wins comparison
 rule itself (`@interop/social-core`); document ciphers, key epochs, and every
-other kind of key handling (`@interop/was-client/edv` and each consuming app);
+other kind of key handling (`@interop/pws-client/edv` and each consuming app);
 and the change engine a replica-less wallet drives instead of RxDB
 (`@interop/wallet-core/sync`).
 
@@ -57,7 +57,7 @@ and the change engine a replica-less wallet drives instead of RxDB
   optional, since only this subpath needs it).
 - `@interop/was-sync/testing` -- test fixtures. It loads without `rxdb` too.
 
-`@interop/was-client` is a peer dependency rather than a dependency, so the
+`@interop/pws-client` is a peer dependency rather than a dependency, so the
 consumer's single range decides which copy resolves. The package constructs none
 of its error classes and matches every one of them by `err.name`.
 
@@ -82,7 +82,7 @@ stay above this layer. The one place a decision cannot be body-opaque is a
 mutable-head conflict, whose sides have to be compared: that decision is
 injected as a closure, so no cipher, key, or descriptor reaches this package. On
 an encrypted collection that closure should be a refreshing cipher's decrypt
-(`createRefreshingEdvDocCipher` from `@interop/was-client/edv`), which carries
+(`createRefreshingEdvDocCipher` from `@interop/pws-client/edv`), which carries
 the once-per-session unknown-epoch re-read; the driver runs no refresh itself.
 Each side is decrypted under its own row id, so the cipher's check that an
 envelope was written for the resource it is being read under still holds here. A
@@ -140,7 +140,7 @@ await database.addCollections({
     schema: syncedDocSchema(),
     // Mutable-head collections need a rule; a content-addressed collection
     // takes RxDB's default handler instead.
-    // The closure is was-client's own `DocCipher.decrypt`; the resolver
+    // The closure is pws-client's own `DocCipher.decrypt`; the resolver
     // addresses each side by the row's own id.
     conflictHandler: makeLwwConflictHandler(options => cipher.decrypt(options))
   }

@@ -22,15 +22,15 @@
  * The unknown-epoch refresh rule reaches this module the same way. An epoch
  * rotation emits no change-feed entry, so a conflict side can be sealed under
  * an epoch the caller's cipher has never seen; the once-per-session re-read
- * and retry that mends it is `@interop/was-client/edv`'s
+ * and retry that mends it is `@interop/pws-client/edv`'s
  * (`createRefreshingEdvDocCipher`, whose decrypt is the closure a consumer
  * hands in). This module runs no refresh of its own: an `undecryptable` side
  * is whatever the closure could not open after its own policy ran, and the
- * warning names which of was-client's two no-key classes it was
+ * warning names which of pws-client's two no-key classes it was
  * (`isUnknownEpochError` / `isKeyUnwrapError`, matched by `err.name`), so a
  * reader can tell a spent refresh from a key this reader was never given.
  *
- * A missing key is not the only way a decrypt can fail. was-client's ciphers
+ * A missing key is not the only way a decrypt can fail. pws-client's ciphers
  * bind an envelope to the resource id it was written for and raise
  * `IntegrityError` when a body is read under a different id. That is a tampered
  * or misfiled envelope rather than a key this reader lacks, so it is not scored
@@ -48,7 +48,7 @@ import {
   isKeyUnwrapError,
   isUnknownEpochError,
   type DocCipher
-} from '@interop/was-client/sync'
+} from '@interop/pws-client/sync'
 import {
   bodiesEqual,
   lwwFields,
@@ -211,7 +211,7 @@ type LwwSide =
 
 /**
  * The decrypt closure the default resolver settles a conflict with:
- * was-client's own `DocCipher.decrypt`, aliased here so the resolver and
+ * pws-client's own `DocCipher.decrypt`, aliased here so the resolver and
  * whatever cipher a consumer wires agree by construction.
  *
  * The `id` the closure is called with is the addressed WAS resourceId, and it
@@ -234,7 +234,7 @@ export type ConflictDecrypt = DocCipher['decrypt']
  * fatal to the replication cycle -- which is how this module already treats a
  * decision it cannot make soundly.
  *
- * A `Blob` does not arise here. was-client resolves one only for a chunked
+ * A `Blob` does not arise here. pws-client resolves one only for a chunked
  * envelope, and only when the caller supplies the `context` that reads the
  * chunks; this resolver supplies none, so a chunked side raises instead. A
  * closure that returns one anyway is scored `undecryptable` rather than `none`,
@@ -345,7 +345,7 @@ function undecryptableReason(
  * @param options.decrypt {ConflictDecrypt}   this collection's decrypt, read
  *   lazily by the caller so a cipher swap is honored; on an encrypted
  *   collection, a refreshing cipher's (`createRefreshingEdvDocCipher` in
- *   `@interop/was-client/edv`), so an unseen-epoch side is re-read once before
+ *   `@interop/pws-client/edv`), so an unseen-epoch side is re-read once before
  *   it counts as undecryptable. Called with the row's own id, and with no
  *   `context`
  * @param [options.payloadWins] {(remote: LwwFields, local: LwwFields) => boolean}

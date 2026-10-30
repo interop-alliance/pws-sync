@@ -16,7 +16,7 @@ import {
 
 // The marker bodies an envelope this client cannot open carries. The fake
 // cipher below throws a differently-named error for each, standing in for
-// was-client's three decrypt failures: a key epoch this client has not seen, a
+// pws-client's three decrypt failures: a key epoch this client has not seen, a
 // key this client was never a recipient of, and an envelope written for a
 // different resource than the one it is being read under.
 const SEALED = 'sealed-under-an-unseen-epoch'
@@ -31,7 +31,7 @@ const decryptCalls: { id: string; envelope: Json; context?: unknown }[] = []
  * A fake cipher whose "envelope" is just the plaintext payload wrapped in
  * `{ jwe: payload }`; decrypt unwraps it. Lets us drive the handler's LWW
  * decision without real crypto. The thrown errors are shaped like the real
- * was-client classes (matched by `err.name`, the cross-package rule): the
+ * pws-client classes (matched by `err.name`, the cross-package rule): the
  * decrypt THROWS rather than returning a payload with no LWW stamp.
  */
 const decrypt: ConflictDecrypt = async ({ id, envelope, context }) => {
@@ -535,7 +535,7 @@ describe('makeLwwConflictHandler', () => {
     })
     expect(winner).toBe(primary)
     expect(logged('warn')).toHaveLength(1)
-    // The warning names was-client's no-key class, so a reader can tell a
+    // The warning names pws-client's no-key class, so a reader can tell a
     // spent (or unwired) refresh from a key this reader was never given.
     expect(logged('warn')[0]?.data).toMatchObject({
       reason: 'unknown-epoch'
@@ -721,7 +721,7 @@ describe('lwwResolver decrypt addressing and integrity', () => {
         ['row-local', local.data]
       ])
     )
-    // was-client resolves a Blob only for a chunked envelope read WITH the
+    // pws-client resolves a Blob only for a chunked envelope read WITH the
     // context that fetches the chunks, so passing none is what keeps a body
     // the LWW rules cannot compare out of reach.
     expect(decryptCalls.map(call => call.context)).toEqual([
@@ -778,7 +778,7 @@ describe('lwwResolver decrypt addressing and integrity', () => {
   })
 
   it('scores a Blob body undecryptable rather than absent', async () => {
-    // Unreachable through was-client's own ciphers here (no context is
+    // Unreachable through pws-client's own ciphers here (no context is
     // passed), so this pins the behavior of a closure that returns one anyway:
     // a body whose stamp cannot be read is something this client cannot
     // compare, not nothing to compare.

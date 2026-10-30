@@ -1,5 +1,16 @@
 # @interop/was-sync Changelog
 
+## 0.12.0 - TBD
+
+### Changed
+
+- Breaking: the `@interop/was-client` peer is now `@interop/pws-client`
+  (`>=0.104.0 <1.0.0`). `createSyncController`'s `port.wasClient` takes a
+  `PwsClient`, and an injected port signals conflict, not-found, auth, and
+  checkpoint failures with the `PwsSync*Error` names, since the
+  `@interop/pws-client/sync` predicates no longer match the `WasSync*Error`
+  names.
+
 ## 0.11.0 - 2026-10-29
 
 ### Changed

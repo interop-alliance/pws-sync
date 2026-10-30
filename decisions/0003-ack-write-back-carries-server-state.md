@@ -5,7 +5,7 @@
 - Driving work: closing the window in which RxDB drops the feed echo of this
   replica's own write, so a created row never learned its `createdBy` or the
   server's write stamp.
-- Affects: was-sync (`src/pushWrites.ts`, `src/wasReplication.ts`); was-client
+- Affects: was-sync (`src/pushWrites.ts`, `src/wasReplication.ts`); pws-client
   (`WriteAck` in `./sync`); was-teaching-server (the Resource write response
   body)
 
@@ -24,7 +24,7 @@ carried.
 ## Decision
 
 The write response body carries the server-managed members of the record as
-the write left them, was-client's `WriteAck` carries the write stamp, the
+the write left them, pws-client's `WriteAck` carries the write stamp, the
 nested `meta` stamp on a `/meta` write, and `createdBy` on a create, and the
 driver's existing ack write-back patches them into the local row beside the
 validators. The content ack supplies the top-level stamp as a unit, the

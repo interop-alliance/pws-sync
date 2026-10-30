@@ -120,13 +120,13 @@ describe('the root entry is free of rxdb', () => {
   it('reaches no rxdb module at runtime', async () => {
     const bare = await bareSpecifiersFrom('index.js')
     expect([...bare].filter(name => name.startsWith('rxdb'))).toEqual([])
-    // The was-client peer is reached at runtime only through its `/sync`
+    // The pws-client peer is reached at runtime only through its `/sync`
     // subpath, for the `err.name` predicates the conflict handler classifies
     // with; the root package itself is types-only. social-core and the two
     // small utilities are the whole of the rest.
     expect([...bare].sort()).toEqual([
+      '@interop/pws-client/sync',
       '@interop/social-core',
-      '@interop/was-client/sync',
       'json-canonicalize',
       'uuidv7'
     ])

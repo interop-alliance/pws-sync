@@ -125,7 +125,7 @@ Produced by a grep of `onWriteAccepted`, `PushWriteAck`, `createPushHandler`,
 freewallet, dcw, and wallet-core (excluding `node_modules`), plus the export
 lists of `src/index.ts` and `src/rxdb.ts`, a grep of `WriteAck` / `putMeta` /
 `putContent` in wallet-core's and was-client's `src/`, and a walk of the WAS
-spec's "Parties to this contract" table (wallet-attached-storage-spec
+spec's "Parties to this contract" table (portable-web-spaces-spec
 `AGENTS.md:101-115`) and the encrypted-collections spec's table.
 
 In this package:
@@ -186,10 +186,10 @@ Parties to the wire change:
   `createdBy` / `createdAt` across a tombstone today and under the resurrection
   rule record this write's instead; its ARCHITECTURE.md backend-contract text
   (~488). `StorageBackend` is a public port (`src/index.ts:6`), so the widening
-  is breaking for custom backends and touches WAS-3 (the Google Drive backend)
-  and WAS-18 (publishing the port). The did:webvh `did.jsonl` write shares the
+  is breaking for custom backends and touches WSS-3 (the Google Drive backend)
+  and WSS-18 (publishing the port). The did:webvh `did.jsonl` write shares the
   Resource `PUT` handler (`ResourceRequest.ts:108-121`) and follows it.
-- wallet-attached-storage-spec `spec.md` -- the Resource `PUT` bullet (~3237)
+- portable-web-spaces-spec `spec.md` -- the Resource `PUT` bullet (~3237)
   and its three examples (~3261, ~3278, ~3301); the `/meta` `PUT` bullet (~3643)
   and example (~3664); the Quickstart (~274, ~286); the `createdBy` definition
   (~3409, "recorded on the first write and preserved unchanged by later writes"
@@ -347,7 +347,7 @@ was-teaching-server. Both `PUT` handlers answer with the status and body.
 `StorageBackend.writeResource` and `writeResourceMetadata` return the members
 the body needs alongside the validator, read inside the write. The widening is
 breaking for custom backends (`StorageBackend` is exported from
-`src/index.ts:6`): a CHANGELOG breaking note, and the WAS-3 and WAS-18 items are
+`src/index.ts:6`): a CHANGELOG breaking note, and the WSS-3 and WSS-18 items are
 affected. CORS needs no change: a body needs no header exposure.
 
 was-conformance-suite. A hard predecessor, since the server's CI runs the
@@ -464,21 +464,21 @@ drop is proved on the stamp, since the first ack already stamps `createdBy`.
 - Where the spec records the change: a new Version History entry, or a bullet in
   the open v0.5 "Breaking changes so far" list. Owner: the user, at the spec
   edit.
-- The body shape against WAS-96 (was-teaching-server
-  `designs/WAS-96-multi-primary-spaces.md`, approved 2026-10-02, after this
-  doc's review). WAS-96 removes `version` and `metaVersion` from every wire
+- The body shape against WSS-96 (was-teaching-server
+  `designs/WSS-96-multi-primary-spaces.md`, approved 2026-10-02, after this
+  doc's review). WSS-96 removes `version` and `metaVersion` from every wire
   object and stamps each record with `updatedAt`, `updatedAtCounter`, and
   `originId`, the `/meta` record's stamp nested under `meta`. The body decided
   in section 5 carries `updatedAt` alone, so under that model the ack would
   stamp a partial stamp, and the row would not compare equal to the feed echo
   once `statesEqual` (WS-23) compares all three members. Section 5's
   `createAckWriteBack` revision rules (`version` absent or `0` stamps nothing)
-  and the forced-window test's `version` assertion describe members WAS-96
+  and the forced-window test's `version` assertion describe members WSS-96
   removes. Candidates: (a) the body carries the record's full stamp, the
   `updatedAtCounter` and `originId` beside `updatedAt`, and on a `/meta` write
   the nested `meta` object, so the server changes its write response once and
   the ack is byte-equal to the echo's stamp (recommended); (b) land this doc as
-  decided and reshape the body under WS-23. The name set is WAS-96's, so (a)
+  decided and reshape the body under WS-23. The name set is WSS-96's, so (a)
   adds no new wire names, but it changes what the two operation bullets list.
   Owner: the user, before implementation; the roadmap item carries an acceptance
   box for it. Decided 2026-10-03: option (a). The body carries `updatedAt`,
@@ -489,4 +489,4 @@ drop is proved on the stamp, since the first ack already stamps `createdBy`.
   not at all, nothing without a validator in the same ack). WS-23 lands first
   against the `etag`-only ack. Section 5's revision rules (`version` absent or
   `0`) and the forced-window test's `version` assertion are superseded by
-  WS-23's design doc. WAS-96 needs a wire item for the write response body.
+  WS-23's design doc. WSS-96 needs a wire item for the write response body.

@@ -21,7 +21,7 @@
  * read everything from the feed body).
  *
  * Opt-in at construction: a deployment whose server exposes the ETag (the
- * reference server does) needs none of this and passes was-client's port
+ * reference server does) needs none of this and passes pws-client's port
  * straight through. The walk's 50-page scan budget is a stated bound a padded
  * feed can exhaust, which is the other reason it is opted into rather than
  * applied by default; exhausting it throws so the cycle retries.

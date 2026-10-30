@@ -14,7 +14,7 @@ import { randomUUID } from 'node:crypto'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createRxDatabase, type RxDatabase } from 'rxdb/plugins/core'
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory'
-import { WasSyncCheckpointError } from '@interop/was-client/sync'
+import { PwsSyncCheckpointError } from '@interop/pws-client/sync'
 import { createWasReplication } from '../../src/wasReplication.js'
 import { syncedDocSchema } from '../../src/syncedDocSchema.js'
 import type { SyncCheckpoint, WasSyncPort, WireDoc } from '../../src/types.js'
@@ -55,7 +55,7 @@ function fakeFeedPort(count: number): WasSyncPort & {
           doc => doc.checkpoint === options.checkpoint
         )
         if (after === -1) {
-          throw new WasSyncCheckpointError()
+          throw new PwsSyncCheckpointError()
         }
         start = after + 1
       }

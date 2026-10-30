@@ -143,9 +143,9 @@ the plain port and asserts one refused update followed by exactly one create.
 - labels: push, metadata, tombstones, integration-test
 - touches:
   - was-sync: `test/node/replication.integration.test.ts`
-  - was-teaching-server: WAS-89 (the metadata validator across a soft delete);
+  - was-teaching-server: WSS-89 (the metadata validator across a soft delete);
     the case below is the client-side check that its fix holds
-  - wallet-attached-storage-spec: WASS-28 (the lifecycle rule the case asserts)
+  - portable-web-spaces-spec: WASS-28 (the lifecycle rule the case asserts)
 - acceptance:
   - [x] An integration case resurrects a tombstoned row that carries `custom`
         and asserts both halves land in one push cycle: the content write under
@@ -164,7 +164,7 @@ handler compares the new local `custom` against the assumed primary's, and a
 tombstone entry has none, so the `/meta` write goes out as a create-if-absent.
 Against the teaching server that is exactly right, because its tombstone drops
 `custom` and `metaVersion`. It also depends on the server not reusing the
-pre-delete metadata validator after the re-create. The server used to (WAS-89):
+pre-delete metadata validator after the re-create. The server used to (WSS-89):
 the meta `ETag` was `<generation>.<metaVersion>` with the generation kept
 through the tombstone and `metaVersion` restarting at 1. The server now gives
 the metadata object a generation of its own, dropped with the tombstone. The
@@ -738,7 +738,7 @@ be stated together. discovered-from: WS-7, via WCL-75.
   - wallet-core (the engine applies the same feed; its own filter): unaffected:
     wallet-core (it reads `WireDoc` off the sync port and calls no `changes()`
     of its own)
-  - dcw, was-react (named by WAS-96 as consumers that filter on `kind`):
+  - dcw, was-react (named by WSS-96 as consumers that filter on `kind`):
     was-react: WR-55 (its `SharedCollectionReader` reads `changes()` directly);
     unaffected: dcw (it reads the feed only through the sync port, driven by
     wallet-core's engine)
@@ -764,7 +764,7 @@ be stated together. discovered-from: WS-7, via WCL-75.
   - [x] CHANGELOG.md entry
   - [x] `touches:` entries resolved
 
-Context: WAS-96 widens the `changes` profile (its WAS-182). Every change
+Context: WSS-96 widens the `changes` profile (its WSS-182). Every change
 document carries a required `kind` from the closed set `resource`,
 `collection-metadata`, `policy`, `log`, and a `contentType` on resources. Binary
 resources and their tombstones now appear, with `data` inline only when the
@@ -791,7 +791,7 @@ skipped kinds live in was-client's sync port tests. Here the integration suite
 runs against was-teaching-server 0.41.1, whose feed is the widened one, so the
 boundary is pinned end to end by every case that pulls.
 
-### WS-23: Adopt the WAS-96 stamp data model in the replica schema and the push path
+### WS-23: Adopt the WSS-96 stamp data model in the replica schema and the push path
 
 - status: done
 - done: 2026-10-04
@@ -809,19 +809,19 @@ boundary is pinned end to end by every case that pulls.
     the `ResourceMetaStamp` / `WriteStamp` re-export from `./sync` was added
     2026-10-04 for 0.89.1 (publish pending), after which `src/types.ts` imports
     the type directly in place of its `MasterState['meta']` alias
-  - was-teaching-server: WAS-189 (the write response body as a WAS-96 wire
-    item), WAS-190 (a `/meta`-only write leaves the content stamp unchanged),
-    filed 2026-10-03; the model ships under WAS-172 and the widened feed under
-    WAS-182, and the integration suite here follows the registry release
+  - was-teaching-server: WSS-189 (the write response body as a WSS-96 wire
+    item), WSS-190 (a `/meta`-only write leaves the content stamp unchanged),
+    filed 2026-10-03; the model ships under WSS-172 and the widened feed under
+    WSS-182, and the integration suite here follows the registry release
   - storage-core (`WriteStamp`, `ResourceMetaStamp`, the reshaped
     `ChangeDocument`; shipped in 0.28.0, 2026-10-03)
   - was-conformance-suite (a "Parties to this contract" row; its feed cases
-    assert `metaVersion` and fail against a WAS-172 server; ships before the
+    assert `metaVersion` and fail against a WSS-172 server; ships before the
     server): PWSCS-18 (done 2026-10-03, the stamp assertions), PWSCS-20 (the
     widened feed, in progress), PWSCS-21 (gains the absent-`meta` assertions,
     2026-10-04)
-  - wallet-attached-storage-spec (the `changes` profile and tie-break text still
-    describe `version` / `metaVersion`; the stamp text is WAS-96's spec work):
+  - portable-web-spaces-spec (the `changes` profile and tie-break text still
+    describe `version` / `metaVersion`; the stamp text is WSS-96's spec work):
     WASS-47, extended 2026-10-04 with the `/meta`-only `updatedAt` rule, the
     write response body, the absent-`meta` rules, and the restated tie-break
   - wallet-core (the `ack.version` sites stop compiling against was-client
@@ -860,7 +860,7 @@ boundary is pinned end to end by every case that pulls.
   - [x] `touches:` entries resolved
 
 Context: The server's approved multi-primary design (was-teaching-server
-`designs/WAS-96-multi-primary-spaces.md`, approved 2026-10-02) replaces the
+`designs/WSS-96-multi-primary-spaces.md`, approved 2026-10-02) replaces the
 per-record revision counters with an origin-minted stamp. On the wire,
 `updatedAt`, `updatedAtCounter`, and `originId` replace `version`, a nested
 `meta` object replaces `metaVersion`, and the validator becomes
@@ -876,7 +876,7 @@ shape is a breaking change for every existing replica (invariant 7).
 
 The design is gated because the schema and the ack both become permanent stored
 shapes, and because the resolver's premise moves. The spec's client tie-break
-sentence is restated under WAS-96: stamped records order by
+sentence is restated under WSS-96: stamped records order by
 `(ms, counter, originId)`, and the `(updatedAt, writerId)` rule survives only
 for an unstamped local edit against a stamped remote. That is the only case this
 driver's conflict path sees (the local side never holds a server stamp), so
@@ -886,7 +886,7 @@ decisions signed off. WS-17 follows this item and changes the ack: the write
 response body carries the full stamp beside `createdBy`, was-client's `WriteAck`
 grows to carry it, and the write-back stamps it under the unit rule the design
 fixes (the content ack supplies the top-level triple, the `/meta` ack supplies
-`meta`, neither partial). WAS-96 needs two amendments for this: a wire item for
+`meta`, neither partial). WSS-96 needs two amendments for this: a wire item for
 the write response body, and an explicit sentence that a `/meta`-only write
 leaves the content record's `updatedAt` unchanged.
 
@@ -960,13 +960,13 @@ discovered-from: WS-17
   - [x] CHANGELOG.md entry
   - [x] `touches:` entries resolved
 
-Context: WAS-96's open point 2 moves `writerId` to the content record alone. A
+Context: WSS-96's open point 2 moves `writerId` to the content record alone. A
 `/meta` write no longer touches it, and the spec's declare-or-clear rule for
 Update Resource Metadata is withdrawn. Invariant 17 and the 0.6.0 CHANGELOG
 entry say every metadata write declares the label in its body. Once the server
 ignores the member, sending it is harmless but misleading, and once the port
 drops the option it no longer compiles. The benign-412 delete retry reads the
-label off the re-read primary's content record, which WAS-96 keeps, so WS-5's
+label off the re-read primary's content record, which WSS-96 keeps, so WS-5's
 rule is unaffected.
 
 ### WS-22: A local delete during a create's push goes out as a header-less `DELETE`
@@ -996,7 +996,7 @@ which only widens what the write-back stamps on a live row.
 
 discovered-from: WS-17
 
-WAS-96 raises the cost of the unconditional `DELETE`. With Collection tombstones
+WSS-96 raises the cost of the unconditional `DELETE`. With Collection tombstones
 replicating under delete-wins and Resources byte-identical across replicas, the
 live copy another replica holds may now be on another server, and the tombstone
 this delete writes propagates to every peer. The priority should move to high
@@ -1009,7 +1009,7 @@ once a consumer runs against a replicated Space.
 - priority: medium
 - labels: push, ack, conditional-writes, correctness
 - touches:
-  - wallet-attached-storage-spec: WASS-54 (a MUST that `ETag` and `Location` are
+  - portable-web-spaces-spec: WASS-54 (a MUST that `ETag` and `Location` are
     named in `Access-Control-Expose-Headers`; no validator members in the write
     response body)
   - unaffected: was-client (`WriteAck` already reads the `ETag` header)
@@ -1037,7 +1037,7 @@ decision for the user.
 
 discovered-from: WS-17
 
-WAS-96 keeps the problem and removes the shortcut. Its validator is
+WSS-96 keeps the problem and removes the shortcut. Its validator is
 `<generation>.<ms>.<counter>.<originId>`, and its wire item 12 puts the
 generation inside the `ETag` only, so even a write response body carrying the
 three stamp members (WS-17 under WS-23) cannot rebuild the validator a
@@ -1064,26 +1064,26 @@ gains no validator members, and the driver code is unchanged.
   - was-client: WCL-128, shipped in 0.90.0 (`WriteAck` carries the stamp,
     `meta`, and `createdBy`, lifted from a `2xx` body behind a shape guard;
     `putMeta` returns an ack with no validator)
-  - was-teaching-server: WAS-189, shipped in 0.42.0 (2026-10-04): `PUT /:id`
+  - was-teaching-server: WSS-189, shipped in 0.42.0 (2026-10-04): `PUT /:id`
     answers `201` on create, a re-creation over a tombstone included, and `200`
     on update, `PUT /:id/meta` answers `200`, both with the server-managed
-    members body (the WAS-172 stamp and the provenance) filled inside the write;
+    members body (the WSS-172 stamp and the provenance) filled inside the write;
     a resurrection records fresh `createdBy` / `createdAt`; `StorageBackend`
     write return types widened, breaking for custom backends; ARCHITECTURE, the
-    WAS-96 wire inventory, CHANGELOG breaking note
+    WSS-96 wire inventory, CHANGELOG breaking note
   - was-conformance-suite: shipped in 0.29.0 (2026-10-04): the strict-`204`
     sites accept `201` / `200` / `204` and check the server-managed body shape
     through one `assertResourceWriteResponse` helper; no ARCHITECTURE file,
     AGENTS carries no write-response prose
-  - wallet-attached-storage-spec: WASS-55, filed 2026-10-05 (both operation
-    bullets, the `201` / `200` statuses, the four examples, the Quickstart, the
+  - portable-web-spaces-spec: WASS-55, filed 2026-10-05 (both operation bullets,
+    the `201` / `200` statuses, the four examples, the Quickstart, the
     `createdBy` definition's resurrection exception, the privacy considerations,
     the Version History; blocked-by WASS-47)
   - unaffected: storage-core (`ResourceMetadata` is the stored record shape the
     spec defines, and the write response body already satisfies it structurally;
     the repo has no write-response type or prose)
   - unaffected: encrypted-collections-spec (parties walked 2026-10-05; the
-    profile's only `204` write text is the chunk operations, which WAS-189 did
+    profile's only `204` write text is the chunk operations, which WSS-189 did
     not change, and it states nothing about Resource or `/meta` writes)
   - wallet-core: WC-278, filed 2026-10-05 (correct the stale write-ack passage
     in `docs/cross-replica-sync-compatibility.md` and ARCHITECTURE; decide
@@ -1165,7 +1165,7 @@ when the local row changed during the push, so a delete during a create's push
 would leave the server copy live, and the design returned to the write-back. The
 design doc enumerates the sites and the interaction matrix.
 
-WAS-96 (was-teaching-server's approved multi-primary design, 2026-10-02) changes
+WSS-96 (was-teaching-server's approved multi-primary design, 2026-10-02) changes
 the ground under this item. Its stamp model removes `version` and `metaVersion`
 from the wire and adds `updatedAtCounter` and `originId` beside `updatedAt`,
 with a nested `meta` object for the `/meta` record (WS-23). The write response
@@ -1174,10 +1174,10 @@ body signed off here (`contentType`, `size`, `updatedAt`, `createdAt`,
 `updatedAt` with no counter or origin id, and the row would not compare equal to
 the feed echo once `statesEqual` compares stamp members. The acceptance boxes
 that name the row's `version` and the write-back's revision rules describe
-members WAS-96 removes. Decided 2026-10-03: the stamp members are folded into
+members WSS-96 removes. Decided 2026-10-03: the stamp members are folded into
 this item's body shape, so the server changes its write response once, and WS-23
 lands first against the `etag`-only ack. The body shape is a wire decision the
-two designs share; WAS-96's wire inventory gains an entry for it.
+two designs share; WSS-96's wire inventory gains an entry for it.
 
 Design note from the 2026-10-04 cleanup pass: `PushWriteAck` today merges the
 two port acks into renamed members (`etag`, `metaEtag`), which loses which write
@@ -1202,7 +1202,7 @@ per-member routing in `recordAck` and the write-back.
         pulls, and asserts the chosen outcome for a row that existed only in the
         previous generation
 
-Context: WAS-96 embeds the Collection's feed generation in the opaque
+Context: WSS-96 embeds the Collection's feed generation in the opaque
 checkpoint, and a Collection tombstone followed by a re-create mints a new
 generation. The server refuses the stale checkpoint with the `400` that 0.7.0
 already turns into a restart from the beginning. The restarted feed lists only
@@ -1210,7 +1210,7 @@ the new life's writes, so a row that existed in the previous generation and was
 never re-created stays in the replica with no tombstone to clear it, and may be
 pushed back as a create. A re-created Collection is already a feed restart
 today, so the gap is latent now and becomes reachable through the replicated
-Collection tombstones WAS-96 adds (its WAS-174), where a tombstone applied from
+Collection tombstones WSS-96 adds (its WSS-174), where a tombstone applied from
 a peer cascades on every replica.
 
 ### WS-9: The feed-walk memo only helps rows earlier in the feed than the first walked id
@@ -1248,14 +1248,14 @@ both "one walk" tests place every id on one page.
         against the other replica, and that the refused checkpoint then re-pulls
         the Collection from the beginning
   - [x] It records that a Resource's stamp and `ETag` are identical on every
-        replica under WAS-96, so the validators the replica holds condition
+        replica under WSS-96, so the validators the replica holds condition
         correctly on the other server, and that a lagging replica answers a
         `412` whose re-read primary is older than the assumed one, which the
         default resolver's rule 2 adopts as remote
   - [x] Whether the resolver should prefer the assumed primary over an older
         re-read primary is decided or filed as its own item (filed as WS-29)
 
-Context: WAS-96 settles that a client replicates against one server at a time
+Context: WSS-96 settles that a client replicates against one server at a time
 (its alternative 7) and that every capability is host-bound (its section 5.12),
 so a wallet reaches a second replica with a new port and a new grant. The
 driver's controller already takes one port and the 0.7.0 checkpoint restart

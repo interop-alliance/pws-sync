@@ -1,4 +1,4 @@
-# WS-23: Adopt the WAS-96 stamp data model (design)
+# WS-23: Adopt the WSS-96 stamp data model (design)
 
 - item: WS-23
 - status: approved
@@ -21,7 +21,7 @@
 ## 1. Problem and scope
 
 The server's approved multi-primary design (was-teaching-server
-`designs/WAS-96-multi-primary-spaces.md`, approved 2026-10-02) replaces the
+`designs/WSS-96-multi-primary-spaces.md`, approved 2026-10-02) replaces the
 per-record revision counter with a write stamp minted at the writing origin.
 Every versioned record carries `updatedAt`, `updatedAtCounter`, and `originId`.
 The `/meta` record's stamp and generation travel as one nested object,
@@ -62,7 +62,7 @@ Where the shared packages stand (checked 2026-10-03):
   and its JSDoc says a caller that needs the write's stamp reads it from the
   feed or from `get`. `ResourceMetaStamp` is not re-exported from `./sync` yet.
 - was-teaching-server is 0.39.0 with a `0.40.0 - TBD` entry that adds the
-  per-store origin id only. WAS-172 (the stamp) and WAS-182 (the widened feed)
+  per-store origin id only. WSS-172 (the stamp) and WSS-182 (the widened feed)
   are both `todo`. The integration suite runs against the live server from the
   registry, so this item cannot go green before that release.
 - The WAS spec has no stamp text yet and still documents `version` /
@@ -74,15 +74,15 @@ response body carries the record's full stamp (`updatedAt`, `updatedAtCounter`,
 was-client's `WriteAck` grows to carry those members, and the write-back stamps
 them under the unit rule in section 5. This item is implemented first, against
 the `etag`-only ack, with the echo as the stamp's source for accepted writes;
-WS-17 then closes the gap. WAS-96's wire inventory has no entry for a write
+WS-17 then closes the gap. WSS-96's wire inventory has no entry for a write
 response body, so it needs an amendment when WS-17 is approved.
 
 So the driver's compile-time dependency is in place and the runtime dependency
 is not. The driver's own `package.json` moves with it: the was-client
 devDependency moves to `^0.87.1` (on 0.x a caret pins the minor), the peer range
 moves from `>=0.85.0 <1.0.0` to a floor at 0.87.1, and the `was-teaching-server`
-devDependency from `link:` to the registry release that ships WAS-172 and
-WAS-182. The CHANGELOG entry names the was-client floor.
+devDependency from `link:` to the registry release that ships WSS-172 and
+WSS-182. The CHANGELOG entry names the was-client floor.
 
 ## 2. Invariant inventory
 
@@ -130,7 +130,7 @@ Numbers are ARCHITECTURE.md's.
   not touched.
 - 17, pushes declare the injected writer id, or none. Upheld here; WS-25 narrows
   it later. The delete retry reads `writerId` off the re-read primary's content
-  record. WAS-96 keeps `writerId` as a content-record member served verbatim on
+  record. WSS-96 keeps `writerId` as a content-record member served verbatim on
   the change document (its decision 12 and wire item 13, and storage-core
   0.28.0's `ChangeDocument` JSDoc); whether a tombstone document keeps it is
   confirmed in section 8.
@@ -248,17 +248,17 @@ Shared packages:
   `WriteStamp` from `./sync`, so the driver aliases the type rather than
   declaring one; that is the 0.87.1 patch release (section 8).
 - storage-core: shipped in 0.28.0; `unaffected` beyond that release.
-- was-teaching-server: ships the model under WAS-172 and the feed under WAS-182.
-  Its ROADMAP WAS-172 `touches:` already names "was-sync: the apply comparison".
+- was-teaching-server: ships the model under WSS-172 and the feed under WSS-182.
+  Its ROADMAP WSS-172 `touches:` already names "was-sync: the apply comparison".
 - was-conformance-suite: a "Parties to this contract" row the item's `touches:`
   omitted. `src/suites/encryption-descriptor-api.ts:497` asserts
   `typeof doc.metaVersion === 'number'` on a feed document and
   `collection-api.ts:751-753` asserts `metaVersion === undefined`; both fail
-  against a WAS-172 server. The suite ships before the server, so the follow-up
+  against a WSS-172 server. The suite ships before the server, so the follow-up
   is filed there.
-- wallet-attached-storage-spec: `spec.md` documents `version` / `metaVersion` at
+- portable-web-spaces-spec: `spec.md` documents `version` / `metaVersion` at
   900, 932, 2223, 4967, 4999, 5041-5043, 5062 and the `(updatedAt, writerId)`
-  tie-break at 3526-3530 and 5028-5031. The stamp text is WAS-96's spec work,
+  tie-break at 3526-3530 and 5028-5031. The stamp text is WSS-96's spec work,
   not this item's; the entry is annotated with that item once filed.
 - wallet-core: `src/sync/types.ts:76` (`SyncedResourceReplica.version`), `:110`
   (`ResolveConflict` local `version`), `:160` and `:174` (`markPushed` /
@@ -317,8 +317,8 @@ WS-17".
 | Meta-only push, assumed primary has `metaEtag`, no `meta` | --                                                                                                                                                                                                                                                                                                                                                                                           | --                                                                                                                                                                                    | --                                                                                                                                            | Changed, and the review's key finding: this is the normal state after this replica's own `/meta` write and before its echo. Routing keys on `meta` or `metaEtag`, so it sends `If-Match`, as today    |
 | Meta-only push, assumed primary has `meta`, no `metaEtag` | Fine: unconditional `PUT`, the hidden-`ETag` case, as `metaVersion` present with `metaEtag` absent does today                                                                                                                                                                                                                                                                                | --                                                                                                                                                                                    | --                                                                                                                                            | --                                                                                                                                                                                                    |
 | Meta-only push, assumed primary has neither               | Fine: `If-None-Match: *`                                                                                                                                                                                                                                                                                                                                                                     | Fine: a row whose `/meta` was never written                                                                                                                                           | --                                                                                                                                            | Changed on a hidden-`ETag` deployment only: after its own first `/meta` write the row has neither, so the next edit `412`s once and the conflict entry brings `meta` down; same as 0.86.0 today       |
-| Meta-only push, assumed primary is a tombstone            | Changed: an explicit tombstone guard sends `If-None-Match: *` whatever `meta` / `metaEtag` the tombstone carries (section 8 confirms whether a WAS-182 tombstone carries `meta` at all)                                                                                                                                                                                                      | Fine: the driver's own tombstone entry carries neither                                                                                                                                | --                                                                                                                                            | --                                                                                                                                                                                                    |
-| Meta-only push and the top-level `updatedAt`              | Decided (section 8; the server pins it under WAS-190, 2026-10-04): the content record's `updatedAt` is the content stamp, a `/meta`-only write leaves it unchanged, and the echo carries the pre-edit `updatedAt`                                                                                                                                                                            | --                                                                                                                                                                                    | Changed: the app's bumped `updatedAt` is replaced by the older content `updatedAt` on the echo, and a consumer sorting by it reorders the row | --                                                                                                                                                                                                    |
+| Meta-only push, assumed primary is a tombstone            | Changed: an explicit tombstone guard sends `If-None-Match: *` whatever `meta` / `metaEtag` the tombstone carries (section 8 confirms whether a WSS-182 tombstone carries `meta` at all)                                                                                                                                                                                                      | Fine: the driver's own tombstone entry carries neither                                                                                                                                | --                                                                                                                                            | --                                                                                                                                                                                                    |
+| Meta-only push and the top-level `updatedAt`              | Decided (section 8; the server pins it under WSS-190, 2026-10-04): the content record's `updatedAt` is the content stamp, a `/meta`-only write leaves it unchanged, and the echo carries the pre-edit `updatedAt`                                                                                                                                                                            | --                                                                                                                                                                                    | Changed: the app's bumped `updatedAt` is replaced by the older content `updatedAt` on the echo, and a consumer sorting by it reorders the row | --                                                                                                                                                                                                    |
 | Delete push                                               | Fine: conditions on `etag`; the tombstone's absent-representation rule is unchanged                                                                                                                                                                                                                                                                                                          | Fine: the no-assumed-primary skip is unchanged                                                                                                                                        | Fine                                                                                                                                          | Fine: nothing written back for a tombstone                                                                                                                                                            |
 | Benign-412 delete retry                                   | Fine: body equality plus `writerId`, re-issued against the re-read `etag`; the log entry names `etag`s                                                                                                                                                                                                                                                                                       | --                                                                                                                                                                                    | --                                                                                                                                            | --                                                                                                                                                                                                    |
 | Content `412`, live primary                               | Changed: the conflict entry carries the primary's stamp members and `meta` verbatim, no `version`                                                                                                                                                                                                                                                                                            | --                                                                                                                                                                                    | --                                                                                                                                            | --                                                                                                                                                                                                    |
@@ -336,14 +336,14 @@ WS-17".
 | Injected resolver (freewallet's contacts comparator)      | Fine: receives the same three states with stamp members in place of revisions; `contactsConflictHandler.ts` reads no `version`, only its tests do                                                                                                                                                                                                                                            | --                                                                                                                                                                                    | Changed in obligation: a resolver that read the triple as an order key would read a hybrid; none does today                                   | --                                                                                                                                                                                                    |
 | Injected `isEqual` (freewallet's `deepEqual`)             | Fine: already compares every member                                                                                                                                                                                                                                                                                                                                                          | --                                                                                                                                                                                    | --                                                                                                                                            | --                                                                                                                                                                                                    |
 | Malformed stamp from the server                           | Changed in what is stored: no validator runs in this package or its consumers, so an oversize `originId`, a non-integer counter, or a `meta` with a missing or extra member is stored verbatim and compared strictly, the same trust `etag` and `createdBy` get today; a consumer that adds a validator wrapper wedges the pull on such a document, as it would on an over-long `etag` today | --                                                                                                                                                                                    | --                                                                                                                                            | --                                                                                                                                                                                                    |
-| Checkpoint stacking                                       | Fine: the opaque string is untouched by WAS-96 (its decision 3)                                                                                                                                                                                                                                                                                                                              | --                                                                                                                                                                                    | --                                                                                                                                            | --                                                                                                                                                                                                    |
+| Checkpoint stacking                                       | Fine: the opaque string is untouched by WSS-96 (its decision 3)                                                                                                                                                                                                                                                                                                                              | --                                                                                                                                                                                    | --                                                                                                                                            | --                                                                                                                                                                                                    |
 | Controller lifecycle                                      | Fine: no revision read                                                                                                                                                                                                                                                                                                                                                                       | --                                                                                                                                                                                    | --                                                                                                                                            | --                                                                                                                                                                                                    |
 | Existing replica on a consumer device                     | Refused by RxDB at `addCollections` (schema hash mismatch at `version: 0`); the consumer forgets the collection and its `rx-replication-meta-*` instance and re-pulls; unpushed local writes are lost (invariant 7)                                                                                                                                                                          | --                                                                                                                                                                                    | --                                                                                                                                            | --                                                                                                                                                                                                    |
 | WS-21 (hidden `ETag`, unconditional next `PUT`)           | Unchanged: the row has no `etag` and no stamp, which changes nothing about the next write                                                                                                                                                                                                                                                                                                    | --                                                                                                                                                                                    | --                                                                                                                                            | --                                                                                                                                                                                                    |
 | WS-22 (local delete during a create's push)               | Unchanged: the header-less `DELETE` question is about `etag`                                                                                                                                                                                                                                                                                                                                 | --                                                                                                                                                                                    | --                                                                                                                                            | --                                                                                                                                                                                                    |
 | WS-25 (`writerId` on `/meta`)                             | Fine: the `/meta` write's attribution spread is untouched here                                                                                                                                                                                                                                                                                                                               | --                                                                                                                                                                                    | --                                                                                                                                            | --                                                                                                                                                                                                    |
 | wallet-core engine on the same server                     | Changed in wallet-core (section 3): compile breaks at the `ack.version` sites, and a silent never-acked state at the `replica.version` reads; the two drivers still converge on the same server state                                                                                                                                                                                        | --                                                                                                                                                                                    | --                                                                                                                                            | --                                                                                                                                                                                                    |
-| Conformance suite against a WAS-172 server                | Refused until its `metaVersion` assertions are rewritten (section 3); the suite ships first                                                                                                                                                                                                                                                                                                  | --                                                                                                                                                                                    | --                                                                                                                                            | --                                                                                                                                                                                                    |
+| Conformance suite against a WSS-172 server                | Refused until its `metaVersion` assertions are rewritten (section 3); the suite ships first                                                                                                                                                                                                                                                                                                  | --                                                                                                                                                                                    | --                                                                                                                                            | --                                                                                                                                                                                                    |
 
 ## 5. Design
 
@@ -450,7 +450,7 @@ user on 2026-10-03, taking the recommendation as stated; doc approval is
 separate):
 
 1. The replica schema stores the stamp under the wire names `updatedAtCounter`,
-   `originId`, and `meta`, with `meta` nested and carrying all four of WAS-96's
+   `originId`, and `meta`, with `meta` nested and carrying all four of WSS-96's
    members including `generation`. Recommended: verbatim, so the conflict entry,
    the echo, and the stored row are byte-equal and `copyOptionalBodyFields`
    needs no per-member mapping. Storing `originId` and `generation` discloses
@@ -485,7 +485,7 @@ separate):
 - Flatten `meta` into `metaUpdatedAt` / `metaUpdatedAtCounter` / `metaOriginId`
   / `metaGeneration` top-level members. Rejected: every mapping would need a
   per-member translation in both directions, the echo would no longer be
-  byte-equal to the stored row, and WAS-96 settled the nested shape on the
+  byte-equal to the stored row, and WSS-96 settled the nested shape on the
   change document, the sidecar, and the served `/meta` object. Recorded as
   do-not-reopen in decisions/0002; revisit if RxDB's schema handling or an index
   need forces a flat member.
@@ -507,7 +507,7 @@ separate):
   `(updatedAt, writerId)`, which is the case the spec's revised tie-break keeps.
 - Drop the `updatedAt` index while the schema is being reshaped anyway.
   Rejected: freewallet sorts by it (`browserStore.ts:586`), and an index change
-  is a consumer decision outside WAS-96's scope.
+  is a consumer decision outside WSS-96's scope.
 - Make `updatedAtCounter` required with a `0` sentinel on fresh rows. Rejected:
   it reintroduces the sentinel this item removes, and a counter of `0` is a
   valid stamp under an HLC (the first write in a millisecond).
@@ -559,7 +559,7 @@ separate):
   bodies, not stamps"); rule 2 resolves `remote` on a `custom` change whatever
   the stamps say; a `local` win returns the edited row with its stale triple.
 - `test/node/replication.integration.test.ts`: against the registry server
-  release that ships WAS-172 and WAS-182, a created row ends with the server's
+  release that ships WSS-172 and WSS-182, a created row ends with the server's
   `updatedAtCounter` and `originId` after the echo, and no `meta` until a
   `/meta` write; a `/meta` write lands the nested `meta`; a `custom` edit made
   after the `/meta` ack and before the echo is pushed with `If-Match` and no
@@ -595,13 +595,13 @@ Resolved on 2026-10-03, after the review pass:
 - A `/meta`-only write and the top-level `updatedAt`: the stamp model's answer
   is taken. The top-level `updatedAt` is the content record's stamp and a
   metadata write leaves it unchanged, or the content validator would move on a
-  write that touched no content. WAS-96's decided open point 2 (two stamp sets,
+  write that touched no content. WSS-96's decided open point 2 (two stamp sets,
   the content record's `updatedAt` top-level) implies this but does not state
-  it, so WAS-96 needs the sentence added. Consumers that sort rows by the
+  it, so WSS-96 needs the sentence added. Consumers that sort rows by the
   top-level `updatedAt` (freewallet, `browserStore.ts:586`) sort by the
   payload's own `updatedAt` instead; a follow-up is filed from the `touches:`
   entry.
-- A tombstone carries no `meta`: WAS-96 invariant 3 says the `/meta` object is
+- A tombstone carries no `meta`: WSS-96 invariant 3 says the `/meta` object is
   its own record, dropped by a soft delete, and a replicated tombstone drops it
   too. The routing guard stays as belt and braces. A tombstone keeps `writerId`
   as the deleting request's label (storage-core 0.28.0's `ChangeDocument`
@@ -612,17 +612,17 @@ Resolved on 2026-10-03, in the approval walkthrough:
 - `meta` is present on a feed document only once metadata has been written.
   Confirmed in the contract the server implements against: storage-core 0.28.0's
   `ChangeDocument` documents `meta` as present "once metadata has been written"
-  and `metaEtag` as "absent until metadata has been written", and WAS-96
+  and `metaEtag` as "absent until metadata has been written", and WSS-96
   invariant 3 makes the `/meta` object a record of its own, created by the first
   metadata write. The `If-None-Match: *` create path rests on it. Verified at
-  integration against the WAS-182 release: the test plan's "a `/meta` write
+  integration against the WSS-182 release: the test plan's "a `/meta` write
   lands the nested `meta`" case gains its negative, a freshly created row that,
   after its echo, carries `updatedAtCounter` and `originId` and no `meta`. No
   driver-side defense (an empty `meta` read as absent); that would be the
   boundary guard decision 7 rejects and would mask a server contract violation.
 - `meta.generation` length. The server mints eight random bytes base58-encoded,
-  about eleven characters (`src/lib/etag.ts` `newGeneration`), and WAS-96 keeps
-  the mint under WAS-172. The four-segment validator is at worst 109 characters
+  about eleven characters (`src/lib/etag.ts` `newGeneration`), and WSS-96 keeps
+  the mint under WSS-172. The four-segment validator is at worst 109 characters
   (11 generation, 13 `ms`, 16 counter, 64 origin, five of punctuation), so
   `etag` / `metaEtag` stay at `maxLength` 256. `meta.generation` is tightened
   from 256 to 64, matching `originId` (decision 3 amended). The bound rests on

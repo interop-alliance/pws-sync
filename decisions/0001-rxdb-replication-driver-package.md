@@ -9,7 +9,7 @@
 - Affects: `@interop/was-sync` (this package), `@interop/was-react` (its
   `src/sync/` deleted, its storage modules reduced to bindings, its root barrel
   narrowed), the Freewallet browser wallet (`src/lib/sync/` deleted, its sync
-  controller reduced to a session binding), `@interop/was-client` (a peer of
+  controller reduced to a session binding), `@interop/pws-client` (a peer of
   this package), `@interop/wallet-core` (unchanged, and stated here as
   unchanged), byoe-ecosystem's dependency layer map.
 
@@ -54,8 +54,8 @@ The package has three entries, and the split is part of the contract:
   schedule and online source the controller tests need. Each consumer keeps a
   lint restriction holding it out of production globs.
 
-`rxdb` and `@interop/was-client` are peer dependencies; `rxdb` is marked
-optional, since only `./rxdb` needs it. was-client is a peer rather than a
+`rxdb` and `@interop/pws-client` are peer dependencies; `rxdb` is marked
+optional, since only `./rxdb` needs it. pws-client is a peer rather than a
 dependency so the consumer's single range decides which copy resolves, which is
 what keeps error classification (by `err.name`) meeting one copy in practice.
 
@@ -82,7 +82,7 @@ ciphers, and the session gates stay app-side.
   anywhere. wallet-core's sync subpath runs on React Native with zero internal
   imports; a peer dependency on a browser storage engine inverts that. Do not
   reopen.
-- **Put the driver in `@interop/was-client`.** was-client's scope is transport
+- **Put the driver in `@interop/pws-client`.** pws-client's scope is transport
   and the wire contract, held free of crypto by an import-graph test, and the
   ecosystem map keeps replica policy out of it. This driver is replica policy:
   checkpoint rules, write routing, conflict handling, the benign-412 delete
@@ -102,7 +102,7 @@ ciphers, and the session gates stay app-side.
   inverted: the engine drives its own store and applies a page transactionally,
   while RxDB drives this driver's handlers and owns the transaction. The shared
   part is the types and the wire rules, which they already share through
-  was-client. Forcing one algorithm means either wrapping RxDB in a store
+  pws-client. Forcing one algorithm means either wrapping RxDB in a store
   interface, losing its conflict handler and checkpoint machinery, or
   reimplementing RxDB's replication protocol. The inversion is structural; the
   record for it lives with the engine.
@@ -120,20 +120,20 @@ ciphers, and the session gates stay app-side.
   built-output suite walks the emitted module and declaration graphs. Adding a
   bare `import type` from `rxdb` to a root-reachable module fails the build's
   own tests.
-- was-client is a peer, so a consumer that forgets to install it gets an install
+- pws-client is a peer, so a consumer that forgets to install it gets an install
   warning rather than a silently duplicated copy. The single-copy property the
   `err.name` rule exists to survive is checked by the consumer's lockfile audit;
   the rule is what makes a missed audit non-fatal.
 - Costs accepted: one more package to version and publish, a release train
   across five repos, and a lockfile audit after each step for one resolved copy
-  each of this package, was-client, wallet-core, and `rxdb`. Two RxDB copies in
+  each of this package, pws-client, wallet-core, and `rxdb`. Two RxDB copies in
   one tree is the sharp case, because it breaks late and quietly -- the
   leader-election plugin is installed on one copy's prototypes and the failure
   surfaces only when a tab is hidden.
 - No Parties-table row lands in the WAS spec for this package. It speaks no WAS
-  HTTP itself: every request goes through was-client's sync port, so by the
+  HTTP itself: every request goes through pws-client's sync port, so by the
   table's admission rule it is a downstream consumer like the wallets, and
-  was-client stays the one named speaker of the `changes` profile. The
+  pws-client stays the one named speaker of the `changes` profile. The
   encrypted-collections table's `@interop/was-react` row is confirmed rather
   than rewritten, since the document cipher stays there. byoe-ecosystem's layer
   map gains this package's node and its edges instead.

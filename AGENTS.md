@@ -21,9 +21,9 @@ change that puts an `rxdb` import (a type import included) anywhere the root
 entry reaches breaks the contract, and `test/packaging/` is what catches it.
 
 What does NOT belong here: WAS HTTP, the sync port, the wire vocabulary, the
-error classes, and the `err.name` predicates (`@interop/was-client`, its `/sync`
+error classes, and the `err.name` predicates (`@interop/pws-client`, its `/sync`
 subpath); the last-write-wins comparison rule (`@interop/social-core`); ciphers,
-key epochs, and any other key handling (`@interop/was-client/edv` and each
+key epochs, and any other key handling (`@interop/pws-client/edv` and each
 consuming app); the session gates, the status store, and the platform wiring
 (each app's binding); and the replica-less change engine
 (`@interop/wallet-core/sync`), which is this driver's sibling rather than its
@@ -70,7 +70,7 @@ Do not add test files to `tsconfig.json` — they would be emitted into `dist/`.
   fake port issuing opaque string checkpoints, since RxDB's checkpoint stacking
   is the layer that would mangle them; the integration suite drives a real RxDB
   memory-storage collection against a live in-process `was-teaching-server`,
-  over the real `createWasSyncPort` from `@interop/was-client` on its default
+  over the real `createPwsSyncPort` from `@interop/pws-client` on its default
   configuration, with one plaintext collection provisioned per test; the
   controller suite mocks `wasReplication.js`, so it exercises the lifecycle
   without opening a database.
@@ -267,7 +267,7 @@ may value-import the package (invariant 13).
 Separate repositories. Use them to ground changes against the actual source
 rather than memory; check with the user before editing anything in them.
 
-- [was-client](https://github.com/interop-alliance/was-client) -- the WAS HTTP
+- [pws-client](https://github.com/interop-alliance/pws-client) -- the PWS HTTP
   client, the sync port this driver runs on, the wire vocabulary, the error
   classes, and the `err.name` predicates.
 - [was-react](https://github.com/interop-alliance/was-react) and the Freewallet
