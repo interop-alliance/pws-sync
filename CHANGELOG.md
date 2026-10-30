@@ -1,6 +1,6 @@
 # @interop/pws-sync Changelog
 
-## 0.13.0 - TBD
+## 0.13.0 - 2026-10-30
 
 ### Changed
 
