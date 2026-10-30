@@ -11,7 +11,7 @@
  * restriction excluding `@interop/was-sync/testing` from its non-test globs.
  *
  * There is no fake WAS server here. The integration suite runs against a live
- * in-process `was-teaching-server`, so the server's conditional-write,
+ * in-process `web-spaces-server`, so the server's conditional-write,
  * tombstone, and `changes`-feed behavior is exercised rather than modeled.
  */
 import type { WasSyncPort } from './types.js'

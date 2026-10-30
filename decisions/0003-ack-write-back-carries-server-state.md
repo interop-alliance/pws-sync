@@ -6,7 +6,7 @@
   replica's own write, so a created row never learned its `createdBy` or the
   server's write stamp.
 - Affects: was-sync (`src/pushWrites.ts`, `src/wasReplication.ts`); pws-client
-  (`WriteAck` in `./sync`); was-teaching-server (the Resource write response
+  (`WriteAck` in `./sync`); web-spaces-server (the Resource write response
   body)
 
 ## Context
