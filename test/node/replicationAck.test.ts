@@ -21,11 +21,11 @@ import {
   type RxDatabase
 } from 'rxdb/plugins/core'
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory'
-import { createWasReplication } from '../../src/wasReplication.js'
+import { createPwsReplication } from '../../src/pwsReplication.js'
 import { syncedDocSchema } from '../../src/syncedDocSchema.js'
 import type {
+  PwsReplicationPort,
   SyncedDoc,
-  WasSyncPort,
   WireDoc,
   WriteAck
 } from '../../src/types.js'
@@ -66,16 +66,16 @@ function ackPort({
   })
   return {
     doc,
-    async query({ checkpoint }: Parameters<WasSyncPort['query']>[0]) {
+    async query({ checkpoint }: Parameters<PwsReplicationPort['query']>[0]) {
       return checkpoint === undefined
         ? { documents: [doc], checkpoint: doc.checkpoint }
         : { documents: [], checkpoint: null }
     },
-    putContent: vi.fn<WasSyncPort['putContent']>(async () => contentAck),
-    deleteContent: vi.fn<WasSyncPort['deleteContent']>(),
-    putMeta: vi.fn<WasSyncPort['putMeta']>(async () => metaAck),
-    get: vi.fn<WasSyncPort['get']>()
-  } satisfies WasSyncPort & { doc: WireDoc }
+    putContent: vi.fn<PwsReplicationPort['putContent']>(async () => contentAck),
+    deleteContent: vi.fn<PwsReplicationPort['deleteContent']>(),
+    putMeta: vi.fn<PwsReplicationPort['putMeta']>(async () => metaAck),
+    get: vi.fn<PwsReplicationPort['get']>()
+  } satisfies PwsReplicationPort & { doc: WireDoc }
 }
 
 async function openCollection() {
@@ -94,9 +94,9 @@ describe('ack write-back', () => {
   it('patches the content etag and nothing else', async () => {
     const collection = await openCollection()
     const port = ackPort({ contentAck: { etag: '"g.4"' }, metaAck: {} })
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'ack-content'
     })
     await replication.awaitInitialReplication()
@@ -134,9 +134,9 @@ describe('ack write-back', () => {
   it('patches the metaEtag and nothing else', async () => {
     const collection = await openCollection()
     const port = ackPort({ contentAck: {}, metaAck: { etag: '"m.3"' } })
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'ack-meta'
     })
     await replication.awaitInitialReplication()
@@ -168,9 +168,9 @@ describe('ack write-back', () => {
   it('patches nothing for an ack with no validator', async () => {
     const collection = await openCollection()
     const port = ackPort({ contentAck: {}, metaAck: {} })
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'ack-none'
     })
     await replication.awaitInitialReplication()
@@ -215,7 +215,7 @@ async function pushEdit({
   beforeStart = () => {},
   writerId
 }: {
-  port: WasSyncPort
+  port: PwsReplicationPort
   replicationIdentifier: string
   edit: Partial<SyncedDoc>
   beforeStart?: (collection: RxCollection<SyncedDoc>) => void
@@ -223,9 +223,9 @@ async function pushEdit({
 }) {
   const collection = await openCollection()
   beforeStart(collection)
-  const replication = createWasReplication({
+  const replication = createPwsReplication({
     rxCollection: collection,
-    wasPort: port,
+    pwsPort: port,
     replicationIdentifier,
     ...(writerId !== undefined && { writerId })
   })

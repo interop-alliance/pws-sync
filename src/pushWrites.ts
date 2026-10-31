@@ -129,7 +129,7 @@
  * of each rejected row), so a successful write's acked state is reported
  * out-of-band: each accepted write's {@link WriteAck} is captured whole and
  * handed to the optional `onWriteAccepted` callback, which writes the acked
- * state back into the local row (see `createWasReplication`). Without that
+ * state back into the local row (see `createPwsReplication`). Without that
  * write-back the local row would hold the pre-write validator and every
  * subsequent conditional write would send a stale `If-Match` and 412. The ack
  * carries the new `etag` / `metaEtag` validators, and, from a server that
@@ -162,8 +162,8 @@ import {
 import type {
   PrimaryReadCache,
   PrimaryState,
+  PwsReplicationPort,
   SyncedDoc,
-  WasSyncPort,
   WithDeleted,
   WriteAck
 } from './types.js'
@@ -263,7 +263,7 @@ function primaryOrTombstone({
  * write-back note).
  *
  * @param options {object}
- * @param options.port {WasSyncPort}
+ * @param options.port {PwsReplicationPort}
  * @param options.newDocumentState {WithDeleted<SyncedDoc>}
  * @param [options.assumedMasterState] {WithDeleted<SyncedDoc>}
  * @param [options.cache] {PrimaryReadCache}   the push batch's shared
@@ -280,7 +280,7 @@ async function pushRow({
   cache,
   writerId
 }: {
-  port: WasSyncPort
+  port: PwsReplicationPort
   newDocumentState: WithDeleted<SyncedDoc>
   assumedMasterState?: WithDeleted<SyncedDoc>
   cache?: PrimaryReadCache
@@ -651,7 +651,7 @@ async function pushRow({
  * feed once, as far as its furthest conflicting resource.
  *
  * @param options {object}
- * @param options.port {WasSyncPort}
+ * @param options.port {PwsReplicationPort}
  * @param [options.onWriteAccepted] {(ack: PushWriteAck) => Promise<void>}
  * @param [options.writerId] {string}   this writer's attribution label, sent
  *   on every content write and delete; absent sends none
@@ -664,7 +664,7 @@ export function createPushHandler({
   onWriteAccepted,
   writerId
 }: {
-  port: WasSyncPort
+  port: PwsReplicationPort
   onWriteAccepted?: (ack: PushWriteAck) => Promise<void>
   writerId?: string
 }) {

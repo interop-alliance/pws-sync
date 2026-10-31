@@ -38,9 +38,13 @@ import {
   isSyncAuthError,
   type SyncStatus
 } from '@interop/pws-client/sync'
-import type { ReplicationCheckpoint, SyncedDoc, WasSyncPort } from './types.js'
+import type {
+  PwsReplicationPort,
+  ReplicationCheckpoint,
+  SyncedDoc
+} from './types.js'
 import { log } from './log.js'
-import { createWasReplication } from './wasReplication.js'
+import { createPwsReplication } from './pwsReplication.js'
 import { withFeedPrimaryRead } from './feedPrimaryPort.js'
 
 /**
@@ -146,25 +150,25 @@ export function isAuthError(err: unknown): boolean {
  * client already holds its own in.
  *
  * @param port {object}
- * @param port.wasClient {PwsClient}
+ * @param port.pwsClient {PwsClient}
  * @param [port.spaceUrl] {string}
  * @returns {string}   the Space URL in canonical form
  * @throws {Error}   when the port names no Space, or two different ones
  * @throws {ValidationError}   pws-client's, when `spaceUrl` is not a Space URL
  */
 function resolveSpaceUrl({
-  wasClient,
+  pwsClient,
   spaceUrl
 }: {
-  wasClient: PwsClient
+  pwsClient: PwsClient
   spaceUrl?: string
 }): string {
-  const own = wasClient.spaceUrl
+  const own = pwsClient.spaceUrl
   if (spaceUrl === undefined) {
     if (own === undefined) {
       throw new Error(
         'createSyncController: the port names no Space. Pass `spaceUrl` ' +
-          'beside `wasClient`, or build the client with ' +
+          'beside `pwsClient`, or build the client with ' +
           '`PwsClient.forSpace({ spaceUrl })` so it carries its own.'
       )
     }
@@ -185,7 +189,7 @@ function resolveSpaceUrl({
  * Builds a controller over one session's collections.
  *
  * The port is inlined at the signature because it is used once. Its members:
- * `wasClient` and `spaceUrl` locate the remote Space. `spaceUrl` is the
+ * `pwsClient` and `spaceUrl` locate the remote Space. `spaceUrl` is the
  * Space's absolute URL as the server or a capability names it. It defaults to
  * the client's own `spaceUrl`, which a client built by `PwsClient.forSpace`
  * carries, so such a consumer hands over the client alone. A client built from
@@ -253,7 +257,7 @@ export function createSyncController({
   writerId
 }: {
   port: {
-    wasClient: PwsClient
+    pwsClient: PwsClient
     spaceUrl?: string
     collections: Array<{ key: string; id: string; capability?: IZcap }>
     rxCollection: (key: string) => RxCollection<SyncedDoc>
@@ -357,11 +361,11 @@ export function createSyncController({
           continue
         }
         onStatus(key, id, 'idle')
-        // pws-client's port is this package's `WasSyncPort` by construction
-        // (the wire types are aliased from it), so a divergence in either
-        // fails to compile here rather than inside a push or pull cycle.
-        const basePort: WasSyncPort = createPwsSyncPort({
-          pws: port.wasClient,
+        // pws-client's port must be assignable to `PwsReplicationPort`, so a
+        // shape mismatch fails to compile here rather than inside a push or
+        // pull cycle. It checks shape only, not how `get` reports a tombstone.
+        const basePort: PwsReplicationPort = createPwsSyncPort({
+          pws: port.pwsClient,
           spaceUrl,
           collectionId: id,
           ...(capability !== undefined && { capability }),
@@ -369,20 +373,20 @@ export function createSyncController({
             mapAuthErrors: port.mapAuthErrors
           })
         })
-        const wasPort =
+        const pwsPort =
           port.feedPrimaryRead === true
             ? withFeedPrimaryRead(basePort)
             : basePort
         const rxCollection = port.rxCollection(key)
-        const state = createWasReplication({
+        const state = createPwsReplication({
           rxCollection,
-          wasPort,
+          pwsPort,
           replicationIdentifier: identifierFor({ collectionId: id }),
           ...(port.batchSize !== undefined && { batchSize: port.batchSize }),
           ...(port.retryTime !== undefined && { retryTime: port.retryTime }),
           ...(writerId !== undefined && { writerId })
         })
-        // Registered BEFORE anything is subscribed: `createWasReplication`
+        // Registered BEFORE anything is subscribed: `createPwsReplication`
         // defaults to `autoStart`, so a throw between construction and
         // registration would leave a live replication `stop()` cannot reach.
         const entry = {

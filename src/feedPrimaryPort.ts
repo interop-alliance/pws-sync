@@ -2,10 +2,11 @@
  * Copyright (c) 2026 Interop Alliance. All rights reserved.
  */
 /**
- * The `get` half of a {@link WasSyncPort}: resolves a resource's current primary
- * state (for the 412 conflict re-read) from the CHANGES-FEED BODY. Wraps a
- * {@link WasSyncBasePort} (query + conditional writes) and adds the `get` the
- * conflict assembler needs, producing a full {@link WasSyncPort}.
+ * The `get` half of a {@link PwsReplicationPort}: resolves a resource's current
+ * primary state (for the 412 conflict re-read) from the CHANGES-FEED BODY.
+ * Wraps a {@link PwsSyncBasePort} (query + conditional writes) and adds the
+ * `get` the conflict assembler needs, producing a full
+ * {@link PwsReplicationPort}.
  *
  * Why the feed body rather than a `GET`: the mutable-head model settles a 412
  * by re-reading the resource's current validator and comparing payloads (LWW).
@@ -29,9 +30,9 @@
 import type {
   PrimaryReadCache,
   PrimaryState,
+  PwsReplicationPort,
+  PwsSyncBasePort,
   SyncCheckpoint,
-  WasSyncBasePort,
-  WasSyncPort,
   WireDoc
 } from './types.js'
 import { copyOptionalBodyFields } from './types.js'
@@ -72,7 +73,7 @@ function toPrimaryState(doc: WireDoc): PrimaryState {
  * this walk is written for. Within a page the LAST entry for an id wins.
  *
  * @param options {object}
- * @param options.base {WasSyncBasePort}
+ * @param options.base {PwsSyncBasePort}
  * @param options.id {string}
  * @param [options.cache] {PrimaryReadCache}
  * @returns {Promise<PrimaryState | null>}
@@ -82,7 +83,7 @@ async function walkFeedFor({
   id,
   cache
 }: {
-  base: WasSyncBasePort
+  base: PwsSyncBasePort
   id: string
   cache?: PrimaryReadCache
 }): Promise<PrimaryState | null> {
@@ -153,10 +154,10 @@ async function walkFeedFor({
  * whatever order the rows arrive in; an id the feed lacks adds one re-read of
  * the feed's last page. Without a `cache` every read walks from the origin.
  *
- * @param base {WasSyncBasePort}
- * @returns {WasSyncPort}
+ * @param base {PwsSyncBasePort}
+ * @returns {PwsReplicationPort}
  */
-export function withFeedPrimaryRead(base: WasSyncBasePort): WasSyncPort {
+export function withFeedPrimaryRead(base: PwsSyncBasePort): PwsReplicationPort {
   return {
     query: base.query.bind(base),
     putContent: base.putContent.bind(base),

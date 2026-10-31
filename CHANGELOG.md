@@ -1,5 +1,22 @@
 # @interop/pws-sync Changelog
 
+## 0.14.0 - TBD
+
+### Changed
+
+- Breaking: the `Was*` names are now `Pws*`, with no alias kept:
+  - `WasSyncPort` is `PwsReplicationPort`, named apart from pws-client's
+    `PwsSyncPort` because their `get` contracts differ
+  - `WasSyncBasePort` is `PwsSyncBasePort`, now derived from pws-client's
+    `PwsSyncPort` rather than redeclared
+  - `createWasReplication` is `createPwsReplication`, with its `wasPort` option
+    now `pwsPort`
+  - `createSyncController`'s `port.wasClient` is `port.pwsClient`
+
+  No stored record or wire value carries any of these names.
+
+- Breaking: the `@interop/pws-client` peer range is now `>=0.105.0 <1.0.0`.
+
 ## 0.13.0 - 2026-10-30
 
 ### Changed

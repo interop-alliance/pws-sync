@@ -14,21 +14,21 @@
  * in-process `web-spaces-server`, so the server's conditional-write,
  * tombstone, and `changes`-feed behavior is exercised rather than modeled.
  */
-import type { WasSyncPort } from './types.js'
+import type { PwsReplicationPort } from './types.js'
 import type { SyncOnlineSource, SyncSchedule } from './controller.js'
 
 /**
- * A {@link WasSyncPort} whose methods are all present but refuse to be called,
- * except the ones the test supplies. Saves every unit suite from hand-writing
- * the four unused members, and turns an unexpected call into a named failure
- * rather than a `TypeError`.
+ * A {@link PwsReplicationPort} whose methods are all present but refuse to be
+ * called, except the ones the test supplies. Saves every unit suite from
+ * hand-writing the four unused members, and turns an unexpected call into a
+ * named failure rather than a `TypeError`.
  *
- * @param [overrides] {Partial<WasSyncPort>}
- * @returns {WasSyncPort}
+ * @param [overrides] {Partial<PwsReplicationPort>}
+ * @returns {PwsReplicationPort}
  */
 export function stubSyncPort(
-  overrides: Partial<WasSyncPort> = {}
-): WasSyncPort {
+  overrides: Partial<PwsReplicationPort> = {}
+): PwsReplicationPort {
   const refuse = (method: string) => async (): Promise<never> => {
     throw new Error(`stubSyncPort: unexpected ${method} call.`)
   }
@@ -39,7 +39,7 @@ export function stubSyncPort(
     putMeta: refuse('putMeta'),
     get: refuse('get'),
     ...overrides
-  } as WasSyncPort
+  } as PwsReplicationPort
 }
 
 /**

@@ -5,10 +5,11 @@
  * Shared types for the collection-agnostic PWS replication driver.
  *
  * The driver moves stored bodies between a local replica and a remote PWS
- * Collection through the {@link WasSyncPort} seam. Nothing here imports RxDB or
- * `@interop/pws-client` at runtime: the wire model (`Json`, `SyncCheckpoint`,
- * the base primary state, the write acknowledgment) is pws-client's, imported
- * as types only, so a body crosses the port boundary without a cast.
+ * Collection through the {@link PwsReplicationPort} seam. Nothing here imports
+ * RxDB or `@interop/pws-client` at runtime: the wire model (`Json`,
+ * `SyncCheckpoint`, the base primary state, the write acknowledgment) is
+ * pws-client's, imported as types only, so a body crosses the port boundary
+ * without a cast.
  *
  * The wire contract follows the PWS `changes` feed and its V2
  * encrypted-metadata profile: a synced document carries both a content record
@@ -29,6 +30,7 @@ import { canonicalize as jcsCanonicalize } from 'json-canonicalize'
 import type {
   Json,
   MasterState as ClientPrimaryState,
+  PwsSyncPort as ClientPwsSyncPort,
   ResourceMetaStamp,
   SyncCheckpoint as ClientSyncCheckpoint,
   WireDoc as ClientWireDoc,
@@ -282,11 +284,11 @@ export interface ReplicationCheckpoint {
  * The stamps are for comparison only -- they are not usable `ifMatch` values.
  * `etag` and `metaEtag` carry the opaque validators, quoted exactly as the
  * server emits them, so a puller can pass one back verbatim as a conditional
- * write's `ifMatch` without a separate {@link WasSyncPort.get}. `epoch` is the
- * opaque key-epoch id the content body was encrypted under, and `createdBy` the
- * server-managed creator DID, both moved verbatim. `writerId` is the
- * writer-attribution label the revision was declared under, when one was,
- * carried into the local row the same way. pws-client's own feed
+ * write's `ifMatch` without a separate {@link PwsReplicationPort.get}. `epoch`
+ * is the opaque key-epoch id the content body was encrypted under, and
+ * `createdBy` the server-managed creator DID, both moved verbatim. `writerId`
+ * is the writer-attribution label the revision was declared under, when one
+ * was, carried into the local row the same way. pws-client's own feed
  * document type, aliased here so the driver and the port agree by construction.
  */
 export type WireDoc = ClientWireDoc
@@ -378,11 +380,11 @@ export interface PrimaryReadCache {
 export type WriteAck = ClientWriteAck
 
 /**
- * The write/query half of the injected PWS-access seam. pws-client's
- * `createPwsSyncPort` implements it; this package depends only on the
- * interface. Every method moves the stored body verbatim -- no codec, no key
- * handling -- so the same port works for plaintext and encrypted collections
- * alike.
+ * The write/query half of the injected PWS-access seam: pws-client's
+ * `PwsSyncPort` without its `get`, derived so the signatures and their docs
+ * live in one place. Every method moves the stored body verbatim -- no codec,
+ * no key handling -- so the same port works for plaintext and encrypted
+ * collections alike.
  *
  * `putContent` / `deleteContent` / `putMeta` MUST throw the port's conflict
  * signal (pws-client's `PwsSyncConflictError`, matched by
@@ -390,122 +392,34 @@ export type WriteAck = ClientWriteAck
  * `412 precondition-failed`, and let every other error propagate so RxDB's
  * retry and backoff handles it.
  *
+ * The push handler tolerates both 404 behaviors of pws-client's port
+ * configurations. A `deleteContent` that resolves `undefined` or rejects with
+ * the not-found signal (`err.name === 'PwsSyncNotFoundError'`) is the
+ * already-gone outcome. A `putMeta` that rejects with the not-found signal, or
+ * with the auth signal carrying `status: 404`, is corroborated against the
+ * changes feed before it is treated as a delete race.
+ *
  * The 412 conflict re-read (`get`) is deliberately NOT part of this base: a
  * deployment whose server hides the ETag behind CORS wraps a base port with
  * {@link withFeedPrimaryRead}, which supplies a `get` resolved from the
- * changes-feed body and so produces a full {@link WasSyncPort}.
+ * changes-feed body and so produces a full {@link PwsReplicationPort}.
  */
-export interface WasSyncBasePort {
-  /**
-   * Pulls one page of the `changes` feed. Omit `checkpoint` for the first page.
-   * Returns the page's `documents` and its resume `checkpoint`, or
-   * `checkpoint: null` for an empty (no-change) page.
-   *
-   * @param options {object}
-   * @param [options.checkpoint] {SyncCheckpoint}   resume position
-   * @param options.limit {number}                  requested batch size
-   * @returns {Promise<{ documents: WireDoc[], checkpoint: SyncCheckpoint | null }>}
-   */
-  query(options: { checkpoint?: SyncCheckpoint; limit: number }): Promise<{
-    documents: WireDoc[]
-    checkpoint: SyncCheckpoint | null
-  }>
-
-  /**
-   * Conditionally writes the content body verbatim (`PUT /:id`). Pass
-   * `ifNoneMatch: true` for a create-if-absent, or `ifMatch` (the opaque `ETag`
-   * from a prior read/write, echoed back verbatim) for an update-if-unchanged.
-   * `epoch` is the opaque key-epoch id the body was encrypted under, sent as
-   * the `Key-Epoch` header (an absent epoch clears any prior stamp on the
-   * server, per the `key-epochs` feature). `writerId` is the writing agent's
-   * attribution label, sent as the `Writer-Id` header; an absent `writerId`
-   * clears any stored label (the spec's declare-or-clear rule). Returns the
-   * accepted write's {@link WriteAck}.
-   *
-   * @param options {object}
-   * @param options.id {string}
-   * @param options.data {Json}
-   * @param [options.ifMatch] {string}
-   * @param [options.ifNoneMatch] {boolean}
-   * @param [options.epoch] {string}
-   * @param [options.writerId] {string}
-   * @returns {Promise<WriteAck>}
-   */
-  putContent(options: {
-    id: string
-    data: Json
-    ifMatch?: string
-    ifNoneMatch?: boolean
-    epoch?: string
-    writerId?: string
-  }): Promise<WriteAck>
-
-  /**
-   * Conditionally deletes a resource (writes a tombstone; `DELETE /:id`). Pass
-   * `ifMatch` (the opaque `ETag` from a prior read/write, echoed back verbatim)
-   * to delete only if unchanged. Returns the tombstone's new {@link WriteAck}
-   * when the server supplies one (the reference server does not). A
-   * spec-conformant server answers `204` for an authorized delete of an absent
-   * resource. A `404` may either resolve `undefined` or reject with the
-   * not-found signal (`err.name === 'PwsSyncNotFoundError'`); the push handler
-   * reads both as the already-gone outcome, so neither port configuration of
-   * pws-client wedges the batch on it. `writerId` declares the deleting
-   * agent's attribution label as the `Writer-Id` header, recorded on the
-   * tombstone; an absent one clears it.
-   *
-   * @param options {object}
-   * @param options.id {string}
-   * @param [options.ifMatch] {string}
-   * @param [options.writerId] {string}
-   * @returns {Promise<WriteAck | undefined>}
-   */
-  deleteContent(options: {
-    id: string
-    ifMatch?: string
-    writerId?: string
-  }): Promise<WriteAck | undefined>
-
-  /**
-   * Conditionally writes the metadata body verbatim (`PUT /:id/meta`, body
-   * `{ custom }`). An ABSENT `custom` writes the CLEARED state (a body with no
-   * `custom` member -- the server's metadata replace clears every property the
-   * body omits), so removing a resource's metadata replicates rather than being
-   * skipped. Pass `ifNoneMatch: true` when the resource has no metadata yet, or
-   * `ifMatch` (the opaque `/meta` `ETag` from a prior read/write, echoed back
-   * verbatim) for an update-if-unchanged. The resource must already exist (the
-   * server does not create a resource from a `/meta` write). Returns the new
-   * metadata {@link WriteAck}, or `undefined` when the server does not supply
-   * one. A `404` (the resource was deleted by another replica) rejects with
-   * the not-found signal (`err.name === 'PwsSyncNotFoundError'`) on the default
-   * port, or the auth signal carrying `status: 404` on a `mapAuthErrors` port;
-   * the push handler corroborates either against the changes feed before
-   * treating it as a delete race. No writer-attribution label is sent: the
-   * label is a member of the content record alone, and a metadata write
-   * leaves it unchanged.
-   *
-   * @param options {object}
-   * @param options.id {string}
-   * @param [options.custom] {Json}   absent = write the cleared state
-   * @param [options.ifMatch] {string}
-   * @param [options.ifNoneMatch] {boolean}
-   * @returns {Promise<WriteAck | undefined>}
-   */
-  putMeta(options: {
-    id: string
-    custom?: Json
-    ifMatch?: string
-    ifNoneMatch?: boolean
-  }): Promise<WriteAck | undefined>
-}
+export type PwsSyncBasePort = Omit<ClientPwsSyncPort, 'get'>
 
 /**
- * The full sync port the driver consumes: a {@link WasSyncBasePort}'s
- * write/query methods plus the `get` the 412 conflict assembler uses. The push
- * handler and `createWasReplication` require this full port; pws-client's
+ * The full port the driver consumes: a {@link PwsSyncBasePort}'s write/query
+ * methods plus the `get` the 412 conflict assembler uses. The push handler and
+ * `createPwsReplication` require this full port; pws-client's
  * `createPwsSyncPort` returns one, and a base port gains `get` through
  * {@link withFeedPrimaryRead}.
+ *
+ * This is not pws-client's `PwsSyncPort`, whose `get` resolves a tombstone as
+ * `null`. Here a {@link PrimaryState} may be a tombstone with `deleted: true`,
+ * so a port from {@link withFeedPrimaryRead} must not be handed to a consumer
+ * of pws-client's port. TypeScript accepts that assignment, so the type does
+ * not catch it.
  */
-export interface WasSyncPort extends WasSyncBasePort {
+export interface PwsReplicationPort extends PwsSyncBasePort {
   /**
    * Re-reads a single resource's current primary state (content + metadata) for
    * the 412 conflict assembler. Returns `null` when the resource is genuinely

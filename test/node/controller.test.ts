@@ -11,7 +11,7 @@
  * its refusals, the sync port each replication is handed, the poll rate and
  * online unsubscription, and the stop that resolves after every cancel.
  *
- * `createWasReplication` is mocked, so no RxDB database is opened here: the
+ * `createPwsReplication` is mocked, so no RxDB database is opened here: the
  * subject is the lifecycle around the replication states, not the states
  * themselves (the integration suite drives a real one).
  */
@@ -21,12 +21,12 @@ import type { PwsClient } from '@interop/pws-client'
 import { isSyncAuthError, PwsSyncAuthError } from '@interop/pws-client/sync'
 import { memoryOnlineSource, memorySchedule } from '../../src/testing.js'
 import { setLogger } from '../../src/log.js'
-import type { WasSyncPort } from '../../src/types.js'
+import type { PwsReplicationPort } from '../../src/types.js'
 
-const createWasReplication = vi.fn()
+const createPwsReplication = vi.fn()
 
-vi.mock('../../src/wasReplication.js', () => ({
-  createWasReplication: (...args: unknown[]) => createWasReplication(...args)
+vi.mock('../../src/pwsReplication.js', () => ({
+  createPwsReplication: (...args: unknown[]) => createPwsReplication(...args)
 }))
 
 const { createSyncController, isAuthError } =
@@ -157,20 +157,20 @@ function recordingPwsClient(): {
 }
 
 /**
- * The `wasPort` the controller handed the Nth `createWasReplication` call.
+ * The `pwsPort` the controller handed the Nth `createPwsReplication` call.
  */
-function handedPort(callIndex = 0): WasSyncPort {
-  const options = createWasReplication.mock.calls[callIndex]?.[0] as {
-    wasPort: WasSyncPort
+function handedPort(callIndex = 0): PwsReplicationPort {
+  const options = createPwsReplication.mock.calls[callIndex]?.[0] as {
+    pwsPort: PwsReplicationPort
   }
-  return options.wasPort
+  return options.pwsPort
 }
 
 /**
  * A PWS client the sync port can be constructed over. Port construction is
  * I/O-free, and nothing here is ever called.
  */
-const wasClient = {
+const pwsClient = {
   spaceAt: () => ({ collection: () => ({}) })
 } as unknown as PwsClient
 
@@ -181,10 +181,10 @@ const wasClient = {
 const spaceUrl = 'https://was.example/space/space-1/'
 
 /**
- * `wasClient` as `PwsClient.forSpace` would build it: carrying its own Space
+ * `pwsClient` as `PwsClient.forSpace` would build it: carrying its own Space
  * URL, in canonical form.
  */
-const forSpaceClient = { ...wasClient, spaceUrl } as unknown as PwsClient
+const forSpaceClient = { ...pwsClient, spaceUrl } as unknown as PwsClient
 
 function fakeRxCollection() {
   return { $: stream<unknown>() }
@@ -204,7 +204,7 @@ function logged(level: 'warn' | 'error'): string[] {
 }
 
 beforeEach(() => {
-  createWasReplication.mockReset()
+  createPwsReplication.mockReset()
   capture = captureLogger('sync')
   setLogger(capture.logger)
 })
@@ -214,7 +214,7 @@ describe('createSyncController lifecycle', () => {
     const rxCollection = vi.fn(fakeRxCollection)
     const controller = createSyncController({
       port: {
-        wasClient,
+        pwsClient,
         spaceUrl,
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: rxCollection as never
@@ -229,18 +229,18 @@ describe('createSyncController lifecycle', () => {
     const started = controller.start()
     await Promise.all([stopped, started])
 
-    expect(createWasReplication).not.toHaveBeenCalled()
+    expect(createPwsReplication).not.toHaveBeenCalled()
     expect(rxCollection).not.toHaveBeenCalled()
   })
 
   it('reports both the logical key and the wire id on every status change', async () => {
     const cancelOrder: string[] = []
     const replication = fakeReplication(cancelOrder, 'notes')
-    createWasReplication.mockReturnValue(replication)
+    createPwsReplication.mockReturnValue(replication)
     const statuses: Array<[string, string, string]> = []
     const controller = createSyncController({
       port: {
-        wasClient,
+        pwsClient,
         spaceUrl,
         // Two registry entries may share one PWS id, so the callback carries
         // both and neither binding has to map.
@@ -270,11 +270,11 @@ describe('createSyncController lifecycle', () => {
     // `active.next(false)`; that `false` is not a completed cycle.
     const cancelOrder: string[] = []
     const replication = fakeReplication(cancelOrder, 'notes')
-    createWasReplication.mockReturnValue(replication)
+    createPwsReplication.mockReturnValue(replication)
     const statuses: string[] = []
     const controller = createSyncController({
       port: {
-        wasClient,
+        pwsClient,
         spaceUrl,
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never
@@ -298,11 +298,11 @@ describe('createSyncController lifecycle', () => {
   it('does not report synced before any cycle has run', async () => {
     const cancelOrder: string[] = []
     const replication = fakeReplication(cancelOrder, 'notes')
-    createWasReplication.mockReturnValue(replication)
+    createPwsReplication.mockReturnValue(replication)
     const statuses: string[] = []
     const controller = createSyncController({
       port: {
-        wasClient,
+        pwsClient,
         spaceUrl,
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never
@@ -320,12 +320,12 @@ describe('createSyncController lifecycle', () => {
 
   it('skips and flags a collection with no capability when its siblings carry one', async () => {
     const cancelOrder: string[] = []
-    createWasReplication.mockReturnValue(fakeReplication(cancelOrder, 'notes'))
+    createPwsReplication.mockReturnValue(fakeReplication(cancelOrder, 'notes'))
     const statuses: Array<[string, string]> = []
     const rxCollection = vi.fn(fakeRxCollection)
     const controller = createSyncController({
       port: {
-        wasClient,
+        pwsClient,
         spaceUrl,
         collections: [
           {
@@ -349,7 +349,7 @@ describe('createSyncController lifecycle', () => {
       ['notes', 'idle'],
       ['posts', 'error']
     ])
-    expect(createWasReplication).toHaveBeenCalledTimes(1)
+    expect(createPwsReplication).toHaveBeenCalledTimes(1)
     expect(rxCollection).toHaveBeenCalledExactlyOnceWith('notes')
     expect(logged('warn')).toHaveLength(1)
     await controller.stop()
@@ -357,12 +357,12 @@ describe('createSyncController lifecycle', () => {
 
   it('replicates every collection when no entry carries a capability', async () => {
     const cancelOrder: string[] = []
-    createWasReplication.mockImplementation(() =>
+    createPwsReplication.mockImplementation(() =>
       fakeReplication(cancelOrder, 'any')
     )
     const controller = createSyncController({
       port: {
-        wasClient,
+        pwsClient,
         spaceUrl,
         collections: [
           { key: 'notes', id: 'notes' },
@@ -374,16 +374,16 @@ describe('createSyncController lifecycle', () => {
       pollMs: 0
     })
     await controller.start()
-    expect(createWasReplication).toHaveBeenCalledTimes(2)
+    expect(createPwsReplication).toHaveBeenCalledTimes(2)
     await controller.stop()
   })
 
   it('builds a replication identifier carrying the Collection URL', async () => {
     const cancelOrder: string[] = []
-    createWasReplication.mockReturnValue(fakeReplication(cancelOrder, 'notes'))
+    createPwsReplication.mockReturnValue(fakeReplication(cancelOrder, 'notes'))
     const controller = createSyncController({
       port: {
-        wasClient,
+        pwsClient,
         spaceUrl,
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never
@@ -395,7 +395,7 @@ describe('createSyncController lifecycle', () => {
 
     // RxDB persists checkpoints under this id inside the database, so an
     // identifier with no Space in it would resume another Space's checkpoint.
-    expect(createWasReplication.mock.calls[0]?.[0]).toMatchObject({
+    expect(createPwsReplication.mock.calls[0]?.[0]).toMatchObject({
       replicationIdentifier: 'pws-sync:https://was.example/space/space-1/notes/'
     })
     await controller.stop()
@@ -403,10 +403,10 @@ describe('createSyncController lifecycle', () => {
 
   it('derives the same identifier from a non-canonical Space URL and an unencoded id', async () => {
     const cancelOrder: string[] = []
-    createWasReplication.mockReturnValue(fakeReplication(cancelOrder, 'notes'))
+    createPwsReplication.mockReturnValue(fakeReplication(cancelOrder, 'notes'))
     const controller = createSyncController({
       port: {
-        wasClient,
+        pwsClient,
         // No trailing slash, and an id with a character the URL encodes.
         spaceUrl: 'https://was.example/space/space-1',
         collections: [{ key: 'notes', id: 'my notes' }],
@@ -419,7 +419,7 @@ describe('createSyncController lifecycle', () => {
 
     // A consumer that later switches to the canonical Space URL must keep its
     // checkpoint, so the identifier is the canonical Collection URL either way.
-    expect(createWasReplication.mock.calls[0]?.[0]).toMatchObject({
+    expect(createPwsReplication.mock.calls[0]?.[0]).toMatchObject({
       replicationIdentifier:
         'pws-sync:https://was.example/space/space-1/my%20notes/'
     })
@@ -427,13 +427,13 @@ describe('createSyncController lifecycle', () => {
   })
 
   /**
-   * A one-collection port over `wasClient`, with the Space named as the test
+   * A one-collection port over `pwsClient`, with the Space named as the test
    * says.
    */
-  function buildPort(port: { wasClient?: PwsClient; spaceUrl?: string }) {
+  function buildPort(port: { pwsClient?: PwsClient; spaceUrl?: string }) {
     return createSyncController({
       port: {
-        wasClient,
+        pwsClient,
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never,
         ...port
@@ -444,13 +444,13 @@ describe('createSyncController lifecycle', () => {
   }
 
   it("defaults the Space URL to the client's own when the port names none", async () => {
-    createWasReplication.mockReturnValue(fakeReplication([], 'notes'))
-    const controller = buildPort({ wasClient: forSpaceClient })
+    createPwsReplication.mockReturnValue(fakeReplication([], 'notes'))
+    const controller = buildPort({ pwsClient: forSpaceClient })
     await controller.start()
 
     // The same identifier the explicit-`spaceUrl` port builds, so a consumer
     // that drops `spaceUrl` in favor of the client's keeps its checkpoint.
-    expect(createWasReplication.mock.calls[0]?.[0]).toMatchObject({
+    expect(createPwsReplication.mock.calls[0]?.[0]).toMatchObject({
       replicationIdentifier: 'pws-sync:https://was.example/space/space-1/notes/'
     })
     await controller.stop()
@@ -459,36 +459,36 @@ describe('createSyncController lifecycle', () => {
   it('refuses at construction a port that names no Space', () => {
     // A client built from a base server URL carries no `spaceUrl`.
     expect(() => buildPort({})).toThrow(/spaceUrl[\s\S]*forSpace/)
-    expect(createWasReplication).not.toHaveBeenCalled()
+    expect(createPwsReplication).not.toHaveBeenCalled()
   })
 
   it("refuses at construction a spaceUrl that disagrees with the client's own", () => {
     expect(() =>
       buildPort({
-        wasClient: forSpaceClient,
+        pwsClient: forSpaceClient,
         spaceUrl: 'https://was.example/space/space-2/'
       })
     ).toThrow(/disagrees/)
-    expect(createWasReplication).not.toHaveBeenCalled()
+    expect(createPwsReplication).not.toHaveBeenCalled()
   })
 
   it('refuses at construction a spaceUrl that is not a Space URL', () => {
     expect(() => buildPort({ spaceUrl: 'not a url' })).toThrow(
       expect.objectContaining({ name: 'ValidationError' })
     )
-    expect(createWasReplication).not.toHaveBeenCalled()
+    expect(createPwsReplication).not.toHaveBeenCalled()
   })
 
   it("accepts a spaceUrl that differs from the client's own only by the trailing slash", async () => {
-    createWasReplication.mockReturnValue(fakeReplication([], 'notes'))
+    createPwsReplication.mockReturnValue(fakeReplication([], 'notes'))
     // The client holds its own in canonical form; the comparison is in
     // canonical form too, so this names the same Space.
     const controller = buildPort({
-      wasClient: forSpaceClient,
+      pwsClient: forSpaceClient,
       spaceUrl: 'https://was.example/space/space-1'
     })
     await controller.start()
-    expect(createWasReplication.mock.calls[0]?.[0]).toMatchObject({
+    expect(createPwsReplication.mock.calls[0]?.[0]).toMatchObject({
       replicationIdentifier: 'pws-sync:https://was.example/space/space-1/notes/'
     })
     await controller.stop()
@@ -496,10 +496,10 @@ describe('createSyncController lifecycle', () => {
 
   it('takes an overridden replication identifier', async () => {
     const cancelOrder: string[] = []
-    createWasReplication.mockReturnValue(fakeReplication(cancelOrder, 'notes'))
+    createPwsReplication.mockReturnValue(fakeReplication(cancelOrder, 'notes'))
     const controller = createSyncController({
       port: {
-        wasClient,
+        pwsClient,
         spaceUrl,
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never,
@@ -509,7 +509,7 @@ describe('createSyncController lifecycle', () => {
       pollMs: 0
     })
     await controller.start()
-    expect(createWasReplication.mock.calls[0]?.[0]).toMatchObject({
+    expect(createPwsReplication.mock.calls[0]?.[0]).toMatchObject({
       replicationIdentifier: 'custom:notes'
     })
     await controller.stop()
@@ -517,13 +517,13 @@ describe('createSyncController lifecycle', () => {
 
   it('hands the injected writerId to every replication, and none when absent', async () => {
     const cancelOrder: string[] = []
-    createWasReplication.mockImplementation(() =>
+    createPwsReplication.mockImplementation(() =>
       fakeReplication(cancelOrder, 'notes')
     )
     const build = (writerId?: string) =>
       createSyncController({
         port: {
-          wasClient,
+          pwsClient,
           spaceUrl,
           collections: [
             { key: 'notes', id: 'notes' },
@@ -543,7 +543,7 @@ describe('createSyncController lifecycle', () => {
     await unlabeled.start()
     await unlabeled.stop()
 
-    const options = createWasReplication.mock.calls.map(
+    const options = createPwsReplication.mock.calls.map(
       call => call[0] as { writerId?: string }
     )
     expect(options.map(option => option.writerId)).toEqual([
@@ -558,13 +558,13 @@ describe('createSyncController lifecycle', () => {
 
 describe('createSyncController failed bring-up', () => {
   it('flags every collection, rethrows, and stays re-startable', async () => {
-    createWasReplication.mockImplementation(() => {
+    createPwsReplication.mockImplementation(() => {
       throw new Error('database closed')
     })
     const statuses: Array<[string, string]> = []
     const controller = createSyncController({
       port: {
-        wasClient,
+        pwsClient,
         spaceUrl,
         collections: [
           { key: 'notes', id: 'notes' },
@@ -583,20 +583,20 @@ describe('createSyncController failed bring-up', () => {
 
     // Not latched: a later start runs its body again rather than no-opping.
     await expect(controller.start()).rejects.toThrow('database closed')
-    expect(createWasReplication).toHaveBeenCalledTimes(2)
+    expect(createPwsReplication).toHaveBeenCalledTimes(2)
   })
 
   it('cancels the replications it already registered when a later construction throws', async () => {
     const cancelOrder: string[] = []
     const first = fakeReplication(cancelOrder, 'notes')
-    createWasReplication
+    createPwsReplication
       .mockReturnValueOnce(first)
       .mockImplementationOnce(() => {
         throw new Error('database closed')
       })
     const controller = createSyncController({
       port: {
-        wasClient,
+        pwsClient,
         spaceUrl,
         collections: [
           { key: 'notes', id: 'notes' },
@@ -617,10 +617,10 @@ describe('createSyncController failed bring-up', () => {
   it('cancels a replication whose own subscription throws', async () => {
     const cancelOrder: string[] = []
     const first = throwingSubscribeReplication(cancelOrder, 'notes')
-    createWasReplication.mockReturnValueOnce(first)
+    createPwsReplication.mockReturnValueOnce(first)
     const controller = createSyncController({
       port: {
-        wasClient,
+        pwsClient,
         spaceUrl,
         collections: [
           { key: 'notes', id: 'notes' },
@@ -635,7 +635,7 @@ describe('createSyncController failed bring-up', () => {
     // The registration happens before the subscriptions, so a throw from
     // subscribing still leaves a replication the unwind can cancel.
     await expect(controller.start()).rejects.toThrow('subscribe failed')
-    expect(createWasReplication).toHaveBeenCalledOnce()
+    expect(createPwsReplication).toHaveBeenCalledOnce()
     expect(first.cancel).toHaveBeenCalledOnce()
     expect(cancelOrder).toEqual(['notes'])
   })
@@ -645,12 +645,12 @@ describe('createSyncController error escalation', () => {
   it('fires onAuthError for an auth signal wrapped in an RxDB error graph', async () => {
     const cancelOrder: string[] = []
     const replication = fakeReplication(cancelOrder, 'notes')
-    createWasReplication.mockReturnValue(replication)
+    createPwsReplication.mockReturnValue(replication)
     const onAuthError = vi.fn()
     const statuses: string[] = []
     const controller = createSyncController({
       port: {
-        wasClient,
+        pwsClient,
         spaceUrl,
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never
@@ -706,12 +706,12 @@ describe('createSyncController error escalation', () => {
 describe('createSyncController remote change', () => {
   it('fires onRemoteChange off the collection stream', async () => {
     const cancelOrder: string[] = []
-    createWasReplication.mockReturnValue(fakeReplication(cancelOrder, 'notes'))
+    createPwsReplication.mockReturnValue(fakeReplication(cancelOrder, 'notes'))
     const collection = fakeRxCollection()
     const onRemoteChange = vi.fn()
     const controller = createSyncController({
       port: {
-        wasClient,
+        pwsClient,
         spaceUrl,
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => collection) as never
@@ -744,10 +744,10 @@ describe('createSyncController sync port', () => {
       spaceUrl?: string | null
     } = {}
   ) {
-    createWasReplication.mockImplementation(() => fakeReplication([], 'notes'))
+    createPwsReplication.mockImplementation(() => fakeReplication([], 'notes'))
     return createSyncController({
       port: {
-        wasClient: client,
+        pwsClient: client,
         ...(options.spaceUrl !== null && {
           spaceUrl: options.spaceUrl ?? spaceUrl
         }),
@@ -858,12 +858,12 @@ describe('createSyncController polling and reachability', () => {
   it('polls at pollMs through the injected schedule, skips a tick while offline, and unsubscribes on stop', async () => {
     const cancelOrder: string[] = []
     const replication = fakeReplication(cancelOrder, 'notes')
-    createWasReplication.mockReturnValue(replication)
+    createPwsReplication.mockReturnValue(replication)
     const schedule = memorySchedule()
     const online = memoryOnlineSource()
     const controller = createSyncController({
       port: {
-        wasClient,
+        pwsClient,
         spaceUrl,
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never
@@ -899,11 +899,11 @@ describe('createSyncController polling and reachability', () => {
 
   it('registers no timer when pollMs is 0', async () => {
     const cancelOrder: string[] = []
-    createWasReplication.mockReturnValue(fakeReplication(cancelOrder, 'notes'))
+    createPwsReplication.mockReturnValue(fakeReplication(cancelOrder, 'notes'))
     const schedule = memorySchedule()
     const controller = createSyncController({
       port: {
-        wasClient,
+        pwsClient,
         spaceUrl,
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never
@@ -923,10 +923,10 @@ describe('createSyncController stop', () => {
     const cancelOrder: string[] = []
     const notes = fakeReplication(cancelOrder, 'notes')
     const posts = fakeReplication(cancelOrder, 'posts')
-    createWasReplication.mockReturnValueOnce(notes).mockReturnValueOnce(posts)
+    createPwsReplication.mockReturnValueOnce(notes).mockReturnValueOnce(posts)
     const controller = createSyncController({
       port: {
-        wasClient,
+        pwsClient,
         spaceUrl,
         collections: [
           { key: 'notes', id: 'notes' },
@@ -960,10 +960,10 @@ describe('createSyncController stop', () => {
     replication.cancel = vi.fn(async () => {
       throw new Error('already closed')
     })
-    createWasReplication.mockReturnValue(replication)
+    createPwsReplication.mockReturnValue(replication)
     const controller = createSyncController({
       port: {
-        wasClient,
+        pwsClient,
         spaceUrl,
         collections: [{ key: 'notes', id: 'notes' }],
         rxCollection: (() => fakeRxCollection()) as never

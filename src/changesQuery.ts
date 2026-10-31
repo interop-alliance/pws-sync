@@ -12,10 +12,10 @@
  */
 import { isSyncCheckpointError } from '@interop/pws-client/sync'
 import type {
+  PwsReplicationPort,
   ReplicationCheckpoint,
   SyncCheckpoint,
   SyncedDoc,
-  WasSyncPort,
   WireDoc,
   WithDeleted
 } from './types.js'
@@ -86,11 +86,11 @@ export function wireDocToRxDoc(doc: WireDoc): WithDeleted<SyncedDoc> {
  * never held. Such a row stays until a consumer forgets the replica
  * (ARCHITECTURE.md documents the residual).
  *
- * @param port {WasSyncPort}
+ * @param port {PwsReplicationPort}
  * @returns {(lastCheckpoint: ReplicationCheckpoint | undefined, batchSize: number) =>
  *   Promise<{ documents: WithDeleted<SyncedDoc>[], checkpoint: ReplicationCheckpoint | undefined }>}
  */
-export function createPullHandler(port: WasSyncPort) {
+export function createPullHandler(port: PwsReplicationPort) {
   let refused: SyncCheckpoint | undefined
   return async function pull(
     lastCheckpoint: ReplicationCheckpoint | undefined,

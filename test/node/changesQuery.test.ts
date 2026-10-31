@@ -12,9 +12,9 @@ import { createPullHandler, wireDocToRxDoc } from '../../src/changesQuery.js'
 import { setLogger, type Logger } from '../../src/log.js'
 import { metaStamp, wire } from './fixtures.js'
 import type {
+  PwsReplicationPort,
   SyncCheckpoint,
   SyncedDoc,
-  WasSyncPort,
   WireDoc,
   WithDeleted
 } from '../../src/types.js'
@@ -25,7 +25,7 @@ import type {
  */
 function fakePullPort(
   pages: Array<{ documents: WireDoc[]; checkpoint: SyncCheckpoint | null }>
-): WasSyncPort & {
+): PwsReplicationPort & {
   calls: Array<{ checkpoint?: SyncCheckpoint; limit: number }>
 } {
   const calls: Array<{ checkpoint?: SyncCheckpoint; limit: number }> = []
@@ -276,7 +276,7 @@ describe('createPullHandler', () => {
    * A port that refuses every pull carrying a checkpoint and serves the one
    * page `documents` from the start of the feed.
    */
-  function refusingPort(documents: WireDoc[]): WasSyncPort & {
+  function refusingPort(documents: WireDoc[]): PwsReplicationPort & {
     calls: Array<{ checkpoint?: SyncCheckpoint; limit: number }>
   } {
     const calls: Array<{ checkpoint?: SyncCheckpoint; limit: number }> = []
@@ -404,7 +404,7 @@ describe('createPullHandler', () => {
           : { documents: [], checkpoint: null }
       }
     }
-    const pull = createPullHandler(port as unknown as WasSyncPort)
+    const pull = createPullHandler(port as unknown as PwsReplicationPort)
 
     const restarted = await pull({ checkpoint: cpA }, 100)
     expect(restarted.checkpoint).toEqual({ checkpoint: cpA })
@@ -445,7 +445,7 @@ describe('createPullHandler', () => {
         return { documents: [], checkpoint: null }
       }
     }
-    const pull = createPullHandler(port as unknown as WasSyncPort)
+    const pull = createPullHandler(port as unknown as PwsReplicationPort)
 
     await pull({ checkpoint: cpA }, 100)
     expect(port.calls).toEqual([
@@ -459,7 +459,7 @@ describe('createPullHandler', () => {
       async query() {
         throw Object.assign(new Error('nope'), { status: 400 })
       }
-    } as unknown as WasSyncPort
+    } as unknown as PwsReplicationPort
     const pull = createPullHandler(port)
 
     await expect(pull({ checkpoint: cpA }, 100)).rejects.toThrow('nope')

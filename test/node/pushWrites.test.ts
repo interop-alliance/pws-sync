@@ -21,9 +21,9 @@ import { metaStamp, wire } from './fixtures.js'
 import type {
   PrimaryReadCache,
   PrimaryState,
+  PwsReplicationPort,
+  PwsSyncBasePort,
   SyncedDoc,
-  WasSyncBasePort,
-  WasSyncPort,
   WireDoc,
   WithDeleted,
   WriteAck
@@ -131,7 +131,7 @@ function fakePushPort(
     getRejectsWith?: unknown
     ackWrites?: boolean
   } = {}
-): WasSyncPort & {
+): PwsReplicationPort & {
   writes: WriteCall[]
   getCalls: string[]
   getOptions: Array<{ id: string; cache?: PrimaryReadCache }>
@@ -731,7 +731,7 @@ describe('createPushHandler conflicts', () => {
   })
 
   it('propagates a non-conflict error so RxDB retries the batch', async () => {
-    const port: WasSyncPort = {
+    const port: PwsReplicationPort = {
       async query() {
         return { documents: [], checkpoint: null }
       },
@@ -1691,7 +1691,7 @@ function fakeFeedBase(options: {
   conflictMeta?: string[]
   holdContent?: string[]
   hideContentEtag?: boolean
-}): WasSyncBasePort & { queryCalls: number } {
+}): PwsSyncBasePort & { queryCalls: number } {
   const state = { queryCalls: 0 }
   const documents = new Map(options.feed.map(doc => [doc.id, { ...doc }]))
   let releaseHeldContent: () => void = () => {}
@@ -1887,7 +1887,7 @@ describe('createPushHandler benign delete retry', () => {
     serverEtag: string
     serverData: unknown
     serverWriterId?: string
-  }): WasSyncPort & { deletes: Array<string | undefined> } {
+  }): PwsReplicationPort & { deletes: Array<string | undefined> } {
     const deletes: Array<string | undefined> = []
     return {
       deletes,
@@ -2211,7 +2211,7 @@ describe('createPushHandler validator-less delete', () => {
 
   it('reports the delete ack like the ordinary delete path', async () => {
     const base = fakePushPort({ primary: livePrimary() })
-    const port: WasSyncPort = {
+    const port: PwsReplicationPort = {
       ...base,
       async deleteContent(options) {
         await base.deleteContent(options)
@@ -2494,7 +2494,7 @@ describe('createPushHandler batch settlement', () => {
     // its ack was handed to `onWriteAccepted`.
     const order: string[] = []
     let release: () => void = () => {}
-    const port: WasSyncPort = {
+    const port: PwsReplicationPort = {
       async query() {
         return { documents: [], checkpoint: null }
       },
@@ -2601,7 +2601,7 @@ describe('createPushHandler delete of an absent resource', () => {
     // the resource vanishes between the re-read and the retry (a delete/delete
     // race). The retry's 404 is the goal state, not an error.
     const deletes: Array<string | undefined> = []
-    const port: WasSyncPort = {
+    const port: PwsReplicationPort = {
       async query() {
         return { documents: [], checkpoint: null }
       },
@@ -2703,7 +2703,7 @@ describe('createPushHandler typed signals from another copy', () => {
 
   it('routes a conflict signal raised by an unrelated copy to the conflict branch', async () => {
     const foreignConflict = { name: 'PwsSyncConflictError', message: '412' }
-    const port: WasSyncPort = {
+    const port: PwsReplicationPort = {
       async query() {
         return { documents: [], checkpoint: null }
       },
@@ -2742,7 +2742,7 @@ describe('createPushHandler typed signals from another copy', () => {
   })
 
   it('corroborates a /meta 404 raised by an unrelated copy', async () => {
-    const port: WasSyncPort = {
+    const port: PwsReplicationPort = {
       async query() {
         return { documents: [], checkpoint: null }
       },
@@ -2872,7 +2872,7 @@ describe('createPushHandler writer attribution', () => {
 
   it('declares the writerId on the benign-412 delete re-issue too', async () => {
     const deletes: Array<{ ifMatch?: string; writerId?: string }> = []
-    const port: WasSyncPort = {
+    const port: PwsReplicationPort = {
       async query() {
         return { documents: [], checkpoint: null }
       },

@@ -36,7 +36,7 @@ src/rxdb.ts              The "./rxdb" door: everything that needs the peer
 src/changesQuery.ts      The pull handler and the wire-to-replica mapping
 src/pushWrites.ts        The push handler: write routing, the benign-412 delete
                          retry, the conflict assembler, the write acks
-src/wasReplication.ts    The replicateRxCollection wiring and the ack write-back
+src/pwsReplication.ts    The replicateRxCollection wiring and the ack write-back
 src/feedPrimaryPort.ts   The opt-in feed-backed conflict re-read (a server that
                          hides the ETag behind CORS)
 src/controller.ts        The controller core: the serialized lifecycle, the
@@ -293,7 +293,7 @@ numbered so items and reviews can cite them.
     this resolver never supplies, and a closure that returns one anyway is
     scored `undecryptable` rather than `none` so the write is not silently lost.
 17. **Pushes declare the injected writer id, or none.** The replication takes an
-    optional `writerId` (`createWasReplication`, `createSyncController`) and the
+    optional `writerId` (`createPwsReplication`, `createSyncController`) and the
     push handler declares it as the `Writer-Id` header on a content write and a
     delete (the benign-412 re-issue included). A `/meta` write sends none,
     because the label is a member of the content record alone and the server
@@ -501,8 +501,15 @@ byoe-ecosystem layer map instead.
   Contrast the **engine** (`@interop/wallet-core/sync`), the replica-less
   implementation a mobile wallet drives. Avoid: adapter, sync layer.
 - **Port** -- an injected seam the driver depends on rather than implements: the
-  `WasSyncPort` (PWS access), the storage port (the writer-id mint), and the
-  schedule and online source (the controller). Avoid: provider, service.
+  `PwsReplicationPort` (PWS access), the storage port (the writer-id mint), and
+  the schedule and online source (the controller). Contrast pws-client's
+  `PwsSyncPort`, the type `createPwsSyncPort` returns: it satisfies
+  `PwsReplicationPort`, and `PwsSyncBasePort` is that type without its `get`.
+  The two `get` contracts differ. pws-client's resolves a tombstone as `null`,
+  while a `PwsReplicationPort` from `withFeedPrimaryRead` may resolve a document
+  with `deleted: true`, so it must not be passed to a consumer of `PwsSyncPort`.
+  TypeScript accepts that assignment, so the type does not catch it. Avoid:
+  provider, service.
 - **Logging seam** -- `src/log.ts`: the locally declared `Logger` port and
   `setLogger`; the one place the package's diagnostics leave through. Avoid: log
   port, SyncLogPort, logger option.
@@ -539,7 +546,7 @@ byoe-ecosystem layer map instead.
   server holds. Every ack carries the opaque `ETag` validator; an ack from a
   server that answers the write with a body also carries the write's stamp, and
   `createdBy` on a create. The write-back (`createAckWriteBack` in
-  `src/wasReplication.ts`) patches the validators, and the stamp as a unit
+  `src/pwsReplication.ts`) patches the validators, and the stamp as a unit
   beside them: the content ack supplies the row's `updatedAt`,
   `updatedAtCounter`, `originId`, and `createdBy`, the `/meta` ack supplies
   `meta`, the two are not mixed, nothing is patched from an ack with no

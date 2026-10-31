@@ -32,7 +32,7 @@ import {
   ensureSpaceAndCollection,
   isSyncConflictError
 } from '@interop/pws-client/sync'
-import { createWasReplication } from '../../src/wasReplication.js'
+import { createPwsReplication } from '../../src/pwsReplication.js'
 import { setLogger } from '../../src/log.js'
 import { syncedDocSchema } from '../../src/syncedDocSchema.js'
 import {
@@ -42,8 +42,8 @@ import {
 } from '../../src/conflictHandler.js'
 import type {
   Json,
+  PwsReplicationPort,
   SyncedDoc,
-  WasSyncPort,
   WithDeleted
 } from '../../src/types.js'
 
@@ -96,8 +96,8 @@ afterEach(async () => {
  * for the test's own reads and seeds.
  */
 async function openServerCollection(): Promise<{
-  port: WasSyncPort
-  observer: WasSyncPort
+  port: PwsReplicationPort
+  observer: PwsReplicationPort
 }> {
   collectionSerial += 1
   const collectionId = `synced-${collectionSerial}`
@@ -166,9 +166,9 @@ async function pullFreshReplica({
     const { synced } = await database.addCollections({
       synced: { schema: syncedDocSchema() }
     })
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: synced,
-      wasPort: createPwsSyncPort({
+      pwsPort: createPwsSyncPort({
         pws,
         spaceUrl,
         collectionId: `synced-${collectionSerial}`
@@ -200,7 +200,7 @@ function stepOf(data: Json | undefined): unknown {
  * Wraps the port's three writes to record the precondition each one carried,
  * so a test can assert the exact conditional-write sequence the driver issued.
  */
-function recordPreconditionsOn(port: WasSyncPort): {
+function recordPreconditionsOn(port: PwsReplicationPort): {
   contentWrites: Array<{ ifMatch?: string; ifNoneMatch?: boolean }>
   metaWrites: Array<{ ifMatch?: string; ifNoneMatch?: boolean }>
   deleteWrites: Array<{ ifMatch?: string; ifNoneMatch?: boolean }>
@@ -321,9 +321,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
   it('pushes a locally-inserted document to the server', async () => {
     const collection = await openCollection()
     const { port, observer } = await openServerCollection()
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-push'
     })
     await replication.awaitInitialReplication()
@@ -348,9 +348,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
     const { port, observer } = await openServerCollection()
     await observer.putContent({ id: 'cid-remote', data: { from: 'server' } })
 
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-pull'
     })
     await replication.awaitInitialReplication()
@@ -364,9 +364,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
   it('round-trips the key-epoch id: a local epoch-stamped doc pushes, and a fresh replica pulls it with the epoch intact', async () => {
     const collection = await openCollection()
     const { port, observer } = await openServerCollection()
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-epoch-roundtrip'
     })
     await replication.awaitInitialReplication()
@@ -411,9 +411,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
       epoch: 'epoch-7'
     })
 
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-epoch-pull'
     })
     await replication.awaitInitialReplication()
@@ -428,9 +428,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
   it('replicates a local delete as a server tombstone', async () => {
     const collection = await openCollection()
     const { port, observer } = await openServerCollection()
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-delete'
     })
     await replication.awaitInitialReplication()
@@ -474,9 +474,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
     // feed; the first such change brings A's live copy down to B.
     const replicaA = await openCollection()
     const { port: portA, observer } = await openServerCollection()
-    const replicationA = createWasReplication({
+    const replicationA = createPwsReplication({
       rxCollection: replicaA,
-      wasPort: portA,
+      pwsPort: portA,
       replicationIdentifier: 'test-skip-delete-a'
     })
     await replicationA.awaitInitialReplication()
@@ -518,9 +518,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
       data: { x: 2 }
     })
 
-    const replicationB = createWasReplication({
+    const replicationB = createPwsReplication({
       rxCollection: replicaB,
-      wasPort: portB,
+      pwsPort: portB,
       replicationIdentifier: 'test-skip-delete-b'
     })
     const errors: unknown[] = []
@@ -564,9 +564,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
       data: { from: 'server' }
     })
 
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-pull-tombstone'
     })
     await replication.awaitInitialReplication()
@@ -590,9 +590,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
       await observer.putContent({ id: `cid-page-${index}`, data: { index } })
     }
 
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-paging',
       batchSize: 3
     })
@@ -633,9 +633,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
         data: oldBody
       })
 
-      const replication = createWasReplication({
+      const replication = createPwsReplication({
         rxCollection: collection,
-        wasPort: port,
+        pwsPort: port,
         replicationIdentifier: 'test-recreated-collection'
       })
       const errors: unknown[] = []
@@ -734,9 +734,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
   it('stamps the server-assigned createdBy on a pushed document', async () => {
     const collection = await openCollection()
     const { port, observer } = await openServerCollection()
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-created-by'
     })
     await replication.awaitInitialReplication()
@@ -773,9 +773,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
   it("lands the server's write stamp on a created row from its ack, with no meta until a /meta write", async () => {
     const collection = await openCollection()
     const { port, observer } = await openServerCollection()
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-stamp-create'
     })
     await replication.awaitInitialReplication()
@@ -827,9 +827,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
   it('lands the nested meta stamp from a /meta write, leaving the top-level updatedAt at the content stamp', async () => {
     const collection = await openCollection()
     const { port, observer } = await openServerCollection()
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-stamp-meta'
     })
     await replication.awaitInitialReplication()
@@ -912,9 +912,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
     })
     const { port, observer } = await openServerCollection()
     const { metaWrites } = recordPreconditionsOn(port)
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-meta-pre-echo'
     })
     const errors: unknown[] = []
@@ -983,9 +983,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
   it('pushes a custom-metadata edit as a /meta write', async () => {
     const collection = await openCollection()
     const { port, observer } = await openServerCollection()
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-meta'
     })
     await replication.awaitInitialReplication()
@@ -1030,9 +1030,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
       }
     })
 
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-412'
     })
     await replication.awaitInitialReplication()
@@ -1103,9 +1103,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
       }
     })
 
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-412-remote'
     })
     await replication.awaitInitialReplication()
@@ -1177,9 +1177,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
       data: body
     })
 
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-412-validator'
     })
     const errors: unknown[] = []
@@ -1255,9 +1255,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
       }
     })
 
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-resurrect'
     })
     const errors: unknown[] = []
@@ -1330,9 +1330,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
     const preDeleteMetaEtag = createdMeta?.etag
     expect(preDeleteMetaEtag).toBeDefined()
 
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-resurrect-meta'
     })
     const errors: unknown[] = []
@@ -1414,9 +1414,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
       ifNoneMatch: true
     })
 
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-feed-tombstone'
     })
     const errors: unknown[] = []
@@ -1496,9 +1496,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
     const preDeleteMetaEtag = createdMeta?.etag
     expect(preDeleteMetaEtag).toBeDefined()
 
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-meta-race'
     })
     const errors: unknown[] = []
@@ -1555,9 +1555,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
     })
     const { port, observer } = await openServerCollection()
     const { deleteWrites } = recordPreconditionsOn(port)
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-recreate',
       writerId: 'writer-a'
     })
@@ -1635,7 +1635,7 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
     const { port: real, observer } = await openServerCollection()
     let conflicts = 0
     const contentWrites: Array<{ ifMatch?: string; ifNoneMatch?: boolean }> = []
-    const hiddenStamp: WasSyncPort = {
+    const hiddenStamp: PwsReplicationPort = {
       async query() {
         return { documents: [], checkpoint: null }
       },
@@ -1679,9 +1679,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
     const collection = await openCollection({
       onConflict: input => conflictInputs.push(input)
     })
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: hiddenStamp,
+      pwsPort: hiddenStamp,
       replicationIdentifier: 'test-hidden-stamp'
     })
     await replication.awaitInitialReplication()
@@ -1813,9 +1813,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
       return rawDelete(options)
     }
     const replicaA = await openCollection()
-    const replicationA = createWasReplication({
+    const replicationA = createPwsReplication({
       rxCollection: replicaA,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-writer-a',
       writerId: 'writer-a'
     })
@@ -1947,9 +1947,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
       echoed.push(...page.documents.map(document => document.id))
       return page
     }
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-forced-window'
     })
     const errors: unknown[] = []
@@ -2013,9 +2013,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
       }
       return ack
     }
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-validator-less-delete'
     })
     const errors: unknown[] = []
@@ -2062,9 +2062,9 @@ describe('PWS replication (RxDB + live web-spaces-server)', () => {
       await observer.deleteContent({ id: options.id, ifMatch: ack.etag })
       return ack
     }
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'test-meta-tombstone-race'
     })
     const errors: unknown[] = []

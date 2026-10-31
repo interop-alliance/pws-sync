@@ -72,7 +72,7 @@ Do not add test files to `tsconfig.json` — they would be emitted into `dist/`.
   memory-storage collection against a live in-process `web-spaces-server`, over
   the real `createPwsSyncPort` from `@interop/pws-client` on its default
   configuration, with one plaintext collection provisioned per test; the
-  controller suite mocks `wasReplication.js`, so it exercises the lifecycle
+  controller suite mocks `pwsReplication.js`, so it exercises the lifecycle
   without opening a database.
 - `test/packaging/` — the packaging suite (`pnpm run test:packaging`, which
   builds first and runs under `vitest.packaging.config.ts`). It walks the

@@ -154,8 +154,8 @@ import { createSyncController } from '@interop/pws-sync/rxdb'
 
 const controller = createSyncController({
   port: {
-    wasClient,
-    // The Space's absolute URL, e.g. `wasClient.space(id).url`. Optional for a
+    pwsClient,
+    // The Space's absolute URL, e.g. `pwsClient.space(id).url`. Optional for a
     // client built with `PwsClient.forSpace`, which carries its own.
     spaceUrl,
     collections: [{ key: 'contacts', id: 'contacts' }],
@@ -182,7 +182,7 @@ await controller.stop()
 different rates and a package default would silently change one app's background
 request rate.
 
-An optional `writerId` (also accepted by `createWasReplication`) is the PWS
+An optional `writerId` (also accepted by `createPwsReplication`) is the PWS
 writer-attribution label. When it is set, every content write and delete
 declares it as the `Writer-Id` header. A metadata write sends none, because the
 label belongs to the content record alone. When it is absent, content writes and

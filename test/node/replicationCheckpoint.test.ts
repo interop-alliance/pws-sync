@@ -15,9 +15,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createRxDatabase, type RxDatabase } from 'rxdb/plugins/core'
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory'
 import { PwsSyncCheckpointError } from '@interop/pws-client/sync'
-import { createWasReplication } from '../../src/wasReplication.js'
+import { createPwsReplication } from '../../src/pwsReplication.js'
 import { syncedDocSchema } from '../../src/syncedDocSchema.js'
-import type { SyncCheckpoint, WasSyncPort, WireDoc } from '../../src/types.js'
+import type {
+  SyncCheckpoint,
+  PwsReplicationPort,
+  WireDoc
+} from '../../src/types.js'
 import { wire } from './fixtures.js'
 
 let db: RxDatabase | undefined
@@ -32,7 +36,7 @@ afterEach(async () => {
  * checkpoint that resumes right after it. Pages are served from the position
  * the presented checkpoint names, as a server would.
  */
-function fakeFeedPort(count: number): WasSyncPort & {
+function fakeFeedPort(count: number): PwsReplicationPort & {
   calls: Array<{ checkpoint?: SyncCheckpoint; limit: number }>
 } {
   const docs: WireDoc[] = Array.from({ length: count }, (_, index) =>
@@ -86,9 +90,9 @@ describe('opaque string checkpoints through RxDB', () => {
     const collection = await openCollection()
     const port = fakeFeedPort(7)
 
-    const replication = createWasReplication({
+    const replication = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'string-checkpoints',
       batchSize: 3,
       live: false
@@ -108,9 +112,9 @@ describe('opaque string checkpoints through RxDB', () => {
     const collection = await openCollection()
     const port = fakeFeedPort(4)
 
-    const first = createWasReplication({
+    const first = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'string-checkpoints-resume',
       batchSize: 10,
       live: false
@@ -121,9 +125,9 @@ describe('opaque string checkpoints through RxDB', () => {
 
     // Same identifier and collection: RxDB resumes from the meta it persisted,
     // which must hand the pull handler the string the server issued.
-    const second = createWasReplication({
+    const second = createPwsReplication({
       rxCollection: collection,
-      wasPort: port,
+      pwsPort: port,
       replicationIdentifier: 'string-checkpoints-resume',
       batchSize: 10,
       live: false

@@ -16,7 +16,7 @@
  */
 export { createPullHandler, wireDocToRxDoc } from './changesQuery.js'
 export { createPushHandler, type PushWriteAck } from './pushWrites.js'
-export { createWasReplication } from './wasReplication.js'
+export { createPwsReplication } from './pwsReplication.js'
 export { withFeedPrimaryRead } from './feedPrimaryPort.js'
 export {
   createSyncController,

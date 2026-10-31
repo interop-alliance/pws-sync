@@ -5,9 +5,11 @@
 - Driving work: closing the window in which RxDB drops the feed echo of this
   replica's own write, so a created row never learned its `createdBy` or the
   server's write stamp.
-- Affects: pws-sync (`src/pushWrites.ts`, `src/wasReplication.ts`); pws-client
+- Affects: pws-sync (`src/pushWrites.ts`, `src/pwsReplication.ts`); pws-client
   (`WriteAck` in `./sync`); web-spaces-server (the Resource write response
   body)
+- Amendments:
+  - 2026-10-30: `src/wasReplication.ts` is now `src/pwsReplication.ts`.
 
 ## Context
 

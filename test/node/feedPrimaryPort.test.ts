@@ -13,8 +13,8 @@ import { withFeedPrimaryRead } from '../../src/feedPrimaryPort.js'
 import { metaStamp, wire } from './fixtures.js'
 import type {
   PrimaryReadCache,
+  PwsSyncBasePort,
   SyncCheckpoint,
-  WasSyncBasePort,
   WireDoc
 } from '../../src/types.js'
 
@@ -44,7 +44,7 @@ function fakeBasePort(
     tailCheckpoint?: SyncCheckpoint
     endless?: WireDoc[]
   } = {}
-): WasSyncBasePort & {
+): PwsSyncBasePort & {
   queryCalls: number
   queries: Array<{ checkpoint?: SyncCheckpoint; limit: number }>
 } {

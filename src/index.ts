@@ -27,12 +27,12 @@ export {
   type OptionalBodyFields,
   type PrimaryReadCache,
   type PrimaryState,
-  type SyncCheckpoint,
+  type PwsReplicationPort,
+  type PwsSyncBasePort,
   type ReplicationCheckpoint,
   type ResourceMetaStamp,
+  type SyncCheckpoint,
   type SyncedDoc,
-  type WasSyncBasePort,
-  type WasSyncPort,
   type WireDoc,
   type WithDeleted
 } from './types.js'

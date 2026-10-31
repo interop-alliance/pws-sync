@@ -1,6 +1,6 @@
 # PWS Sync Roadmap (open items)
 
-nextAvailableId: 33
+nextAvailableId: 34
 
 Status as of 2026-09-05. Uses the formalized item structure shared across the
 `@interop/*` repos.
@@ -24,21 +24,24 @@ in [AGENTS.md](AGENTS.md) under "Roadmap & Task Conventions".
 
 ### WS-32: Move the consumers to `@interop/pws-sync`
 
-- status: todo
+- status: in-progress
 - priority: medium
-- labels: packaging, was-react, freewallet
+- labels: packaging, pws-react, freewallet
 - touches:
-  - was-react: `package.json`, `eslint.config.js`, `vite.config.ts`,
+  - pws-react: `package.json`, `eslint.config.js`, `vite.config.ts`,
     ARCHITECTURE.md, AGENTS.md, README.md, and the `src/` and `test/` imports
+    (moved to `@interop/pws-sync` 0.13.0 in its 0.33.0 working tree, uncommitted
+    as of 2026-10-30; WR-101 takes it to the renamed names)
   - freewallet: `package.json`, `tsconfig.app.json`, `vite.config.ts`,
     `eslint.config.js`, ARCHITECTURE.md, AGENTS.md, and the `src/` imports
+    (FW-698)
 - acceptance:
-  - [ ] `@interop/pws-sync` is published to npm
-  - [ ] was-react depends on `@interop/pws-sync`, with no `@interop/was-sync`
+  - [x] `@interop/pws-sync` is published to npm
+  - [x] was-react depends on `@interop/pws-sync`, with no `@interop/was-sync`
         import left in its `src/` or `test/`
   - [ ] freewallet depends on `@interop/pws-sync`, with no `@interop/was-sync`
         import left in its `src/` or `tests/`
-  - [ ] each `touches:` entry is annotated with its follow-up item or what
+  - [x] each `touches:` entry is annotated with its follow-up item or what
         shipped there
 
 Context: this package was renamed from `@interop/was-sync` to
@@ -51,6 +54,9 @@ both are still on `@interop/was-client`, while this release requires
 Each consumer moves in the same change as its own `@interop/pws-client`
 migration, since the driver's error matching depends on the `PwsSync*Error`
 names that client raises.
+
+State on 2026-10-30: only the freewallet box is open. The move is FW-698 there,
+which should take 0.14.0 directly and skip the `Was*` names.
 
 ---
 

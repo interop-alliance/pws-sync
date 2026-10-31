@@ -1353,3 +1353,43 @@ such consumer hands the controller two copies of one value (was-react's
 consumer has to keep them consistent. A client built from a base server URL has
 no single Space, so the member stays required there; the change is a default,
 not a removal. Discovered during the was-react WR-98 port.
+
+### WS-33: Rename the `Was*` port and replication names to `Pws*`
+
+- status: done
+- done: 2026-10-30
+- priority: low
+- labels: pws, simplification, breaking
+- touches:
+  - this repo: `src/types.ts`, `src/index.ts`, `src/rxdb.ts`,
+    `src/controller.ts`, `src/wasReplication.ts`, `src/feedPrimaryPort.ts`,
+    `src/pushWrites.ts`, `src/changesQuery.ts`, `src/testing.ts`, README.md,
+    ARCHITECTURE.md, AGENTS.md (shipped in 0.14.0)
+  - was-react: WR-101 (drops its aliases, and passes the renamed port member);
+    was-react ARCHITECTURE.md and AGENTS.md name none of the renamed identifiers
+    (grep, 2026-10-30)
+  - freewallet: FW-698 (takes `@interop/pws-sync` 0.14.0 directly, so it adopts
+    these names in its `pws-client` move); freewallet ARCHITECTURE.md and
+    AGENTS.md name none of the renamed identifiers (grep, 2026-10-30)
+- acceptance:
+  - [x] `WasSyncPort`, `WasSyncBasePort`, `createWasReplication`, and the
+        `wasClient`, `wasPort`, and `wasReplication` names become
+        `PwsReplicationPort`, `PwsSyncBasePort`, `createPwsReplication`,
+        `pwsClient`, `pwsPort`, and `pwsReplication`, with no alias kept
+  - [x] `src/wasReplication.ts` and its test take the matching file name, and no
+        `was`-prefixed name remains in `src` or the current docs (README.md,
+        ARCHITECTURE.md, AGENTS.md, `decisions/`). `designs/` keeps its dated
+        references as the historical record of each design
+
+Context: the package moved from `@interop/was-sync` to `@interop/pws-sync` and
+onto `@interop/pws-client`, but its own exported names kept the old prefix. A
+consumer now writes `WasSyncPort` from a package named `pws-sync`, and passes a
+`PwsClient` as `wasClient`. was-react has renamed its own `Was*` exports and can
+only alias these two types at the import. It cannot alias `wasClient`, because
+that is a property of the controller port, so the name can only change here. The
+rename is code-only: no stored record or wire value carries any of these names.
+
+`WasSyncPort` became `PwsReplicationPort` rather than `PwsSyncPort` because
+pws-client exports a `PwsSyncPort` with a different `get` contract: it resolves
+a tombstone as `null`, while the feed-backed read here may resolve a document
+with `deleted: true`. `PwsSyncBasePort` is now derived from pws-client's port.
